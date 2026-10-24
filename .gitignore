@@ -1,0 +1,17 @@
+# Kernel build output (the build happens in ~/wsl-kernel-build inside WSL,
+# but keep stray copies out of the repo)
+Image
+*.img
+vmlinux*
+
+# Local test apps and logs
+/expo-test/
+*.log
+
+# OS / editor noise
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+*.swp
