@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
   Creates a desktop shortcut that starts Android and leaves adb connected.
-  The console window stays open showing the device serial; close it when done
-  (Android keeps running until `android.ps1 stop`).
+  The console window stays open showing the device serial and can be closed
+  at any time. Closing the Android window shuts Android down.
 .EXAMPLE
   .\windows\create-shortcut.ps1
   .\windows\create-shortcut.ps1 -Name 'Android' -Window 480x1040
@@ -63,6 +63,7 @@ $script = Join-Path $PSScriptRoot 'android.ps1'
 $arguments = "-NoExit -ExecutionPolicy Bypass -File `"$script`" start"
 if ($Window) { $arguments += " -Window $Window" }
 
+# There is no stop shortcut on purpose: closing the Android window shuts it down.
 $lnkPath = Join-Path ([Environment]::GetFolderPath('Desktop')) "$Name.lnk"
 $wsh = New-Object -ComObject WScript.Shell
 $lnk = $wsh.CreateShortcut($lnkPath)

@@ -93,7 +93,11 @@ Want the Play Store? Use `.\windows\android.ps1 setup -Gapps` instead, then [reg
 .\windows\android.ps1 stop                   # shut Android down and free the RAM
 ```
 
-Or just double-click **Android Emulator** on your desktop. A console opens, boots Android, connects `adb` and prints the serial. You can close that console afterwards: Android keeps running until you run `stop`.
+Or just use the desktop icon, like a regular app:
+
+- **Open:** double-click **Android Emulator**. A console boots Android, connects `adb` and prints the serial. You can close that console at any time.
+- **Close:** click the **X** on the Android window. Android shuts down, the adb bridge stops and WSL releases the memory. This is the same as `android.ps1 stop`.
+- **Reopen:** double-click the icon again. Android always starts fresh.
 
 > [!TIP]
 > The serial is `<WSL IP>:5555`, and the WSL IP can change whenever WSL restarts. `start` always prints the current one.
@@ -132,7 +136,8 @@ Each piece solves one specific problem:
 |---|---|
 | WSL's kernel has no **binder**, Android's IPC | [`build-kernel.sh`](wsl/kernel/build-kernel.sh) builds Microsoft's kernel at the same version, plus [`waydroid.config`](wsl/kernel/waydroid.config) (binder, iptables tables for the container's network) |
 | WSLg always maximizes the Waydroid window | Android draws inside a nested **Weston** in kiosk mode, sized like a phone |
-| With systemd, WSL shuts the distro down when no `wsl.exe` is attached | A hidden `wsl.exe … sleep infinity` keeps it alive. It's launched through WMI, so closing the console doesn't kill it |
+| With systemd, WSL shuts the distro down when no `wsl.exe` is attached | A hidden `wsl.exe` running [`keep-alive.sh`](wsl/keep-alive.sh) holds it up while the Android window is open, then exits on its own. It's launched through WMI, so closing the console doesn't kill it |
+| Android can't redraw into a new window once its compositor is gone | Closing the window stops the whole Android session (a systemd `ExecStopPost`), so every start is clean |
 | Background processes die with the `wsl.exe` that started them | Weston, the session, the UI and the adb bridge run as **systemd user units** with lingering enabled |
 | WSL's `localhost` forwarding is unreliable with systemd | `adb` connects to the distro's IP instead, through a `socat` bridge |
 | The "Allow USB debugging?" prompt blocks automation | `start` pre-authorizes your Windows `adbkey.pub` inside Android |
@@ -188,6 +193,7 @@ wsl/                         Bash, runs inside the distro
   start-android.sh           Weston + session + UI + adb bridge (systemd user units)
   stop-android.sh            Stop all of the above
   authorize-adb.sh           Trust a Windows adb key inside Android
+  keep-alive.sh              Keep WSL running while the Android window is open
 assets/                      Shortcut icon
 docs/images/                 Screenshots
 ```
@@ -219,6 +225,7 @@ sudo tail /var/lib/waydroid/waydroid.log
 |---|---|
 | `waydroid-net.sh` fails with `table mangle does not exist` | Your kernel predates the netfilter options. Run `install-kernel.ps1` again with the current `waydroid.config`. |
 | Black screen, and `system_server` crashes in `getCompositionColorSpaces` | The compositor rejected the buffer size. Don't set `persist.waydroid.width/height`: the window size (`-Window`) controls it. |
+| Black window after reopening | Android was still running from a window that no longer exists. Current scripts handle this; if it happens, run `android.ps1 stop` and then `start`. |
 | Android shuts down on its own | The hidden keep-alive `wsl.exe` is gone. Run `android.ps1 start` again. |
 | No internet inside Android | `sudo waydroid container restart`, then check that `sudo iptables -t nat -L` has rules for `waydroid0`. |
 

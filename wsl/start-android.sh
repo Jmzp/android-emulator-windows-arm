@@ -39,8 +39,20 @@ if [ "$WINDOW" = "full" ]; then
 else
   DISPLAY_SOCKET=waydroid-0
   W="${WINDOW%x*}"; H="${WINDOW#*x}"
+
+  # Android's hwcomposer can't reconnect to a new compositor: if the window
+  # is gone but the session survived, the new window would stay black.
+  if ! systemctl --user is-active -q waydroid-weston && waydroid status | grep -q "Session:.*RUNNING"; then
+    echo "==> Window was closed; restarting the Android session"
+    waydroid session stop 2>/dev/null || true
+    systemctl --user stop waydroid-session waydroid-ui 2>/dev/null || true
+  fi
+
   echo "==> Opening phone window (${W}x${H})"
+  # Closing the window with its X shuts Android down (session, UI, adb bridge),
+  # so the next start is clean. --no-block avoids waiting on our own stop job.
   run_unit waydroid-weston --setenv=WAYLAND_DISPLAY=wayland-0 \
+    --property=ExecStopPost="/bin/sh -c 'waydroid session stop; systemctl --user stop --no-block waydroid-ui waydroid-adb-bridge waydroid-session'" \
     weston --backend=wayland --shell=kiosk --socket="$DISPLAY_SOCKET" \
            --width="$W" --height="$H" --idle-time=0
   for _ in $(seq 1 20); do [ -S "$XDG_RUNTIME_DIR/$DISPLAY_SOCKET" ] && break; sleep 0.5; done

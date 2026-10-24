@@ -19,29 +19,33 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\common.ps1"
 
 # With systemd, WSL shuts the distro down once no wsl.exe client is attached,
-# taking Android with it. A hidden `sleep infinity` keeps it alive.
+# taking Android with it. A hidden wsl.exe running keep-alive.sh holds it up
+# for as long as the Android window is open, then exits so WSL can free RAM.
 $keepAlivePid = Join-Path $env:TEMP "android-wsl-keepalive-$Distro.pid"
 
-function Start-KeepAlive {
+function Start-KeepAlive([string]$Unit) {
     if (Test-Path $keepAlivePid) {
         $old = Get-Process -Id (Get-Content $keepAlivePid) -ErrorAction SilentlyContinue
         if ($old -and $old.ProcessName -eq 'wsl') { return }
     }
     # Created through WMI so it is not part of this console's process tree:
     # closing the console (or terminal tab) must not take Android down.
+    $script = ConvertTo-WslPath (Join-Path $RepoRoot 'wsl\keep-alive.sh')
     $startup = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = [uint16]0 }
     $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
-        CommandLine = "wsl.exe -d $Distro -- sleep infinity"
+        CommandLine = "wsl.exe -d $Distro --cd ~ -- bash `"$script`" $Unit"
         ProcessStartupInformation = $startup
     }
     if ($r.ReturnValue -ne 0) { throw "Could not start the WSL keep-alive (Win32_Process.Create returned $($r.ReturnValue))" }
     Set-Content $keepAlivePid $r.ProcessId
 }
 
+# keep-alive.sh exits by itself once the window unit stops. Killing wsl.exe
+# instead can leave the WSL service hung, so that is only a last resort.
 function Stop-KeepAlive {
     if (-not (Test-Path $keepAlivePid)) { return }
-    Get-Process -Id (Get-Content $keepAlivePid) -ErrorAction SilentlyContinue |
-        Where-Object ProcessName -eq 'wsl' | Stop-Process -Force
+    $p = Get-Process -Id (Get-Content $keepAlivePid) -ErrorAction SilentlyContinue | Where-Object ProcessName -eq 'wsl'
+    if ($p -and -not $p.WaitForExit(20000)) { $p | Stop-Process -Force }
     Remove-Item $keepAlivePid
 }
 
@@ -50,7 +54,8 @@ switch ($Command) {
         Invoke-RepoScript 'wsl/setup-waydroid.sh' @($(if ($Gapps) { 'GAPPS' } else { 'VANILLA' }))
     }
     'start' {
-        Start-KeepAlive
+        # The window is the Weston unit, or the Waydroid UI itself with -Full.
+        Start-KeepAlive $(if ($Full) { 'waydroid-ui' } else { 'waydroid-weston' })
         Invoke-RepoScript 'wsl/start-android.sh' @($(if ($Full) { 'full' } else { $Window }))
 
         $adb = Get-Adb
