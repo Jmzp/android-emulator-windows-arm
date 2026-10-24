@@ -8,7 +8,7 @@ Where this project is heading, ordered by impact versus effort. Ideas and pull r
 
 | | Item | Why it matters |
 |---|---|---|
-| 🚧 | **Prebuilt kernels on GitHub Releases** | A GitHub Actions workflow builds the binder kernel on an arm64 runner, so installing takes seconds instead of a 20–60 min local build, and OOM-during-build problems disappear. |
+| ✅ | **Prebuilt kernels on GitHub Releases** | A GitHub Actions workflow builds the binder kernel on an arm64 runner (~13 min) and publishes it. Installing now takes ~10 seconds instead of a 20–60 min local build, and OOM-during-build problems disappear. |
 | ⬜ | **Stable serial, detected as an emulator** | Add a tiny Windows-side relay on `127.0.0.1:5555` so `adb` lists the device as `emulator-5554`. It would no longer change when WSL restarts, and Android Studio, Expo and Flutter would treat it like any emulator, with no `ANDROID_SERIAL` or `adb connect`. |
 | ⬜ | **One-step installer (`install.ps1`)** | Chain the setup steps with preflight checks (ARM64, WSL version, `adb`, disk space), safe to re-run. |
 | ⬜ | **`android.ps1 doctor`** | Automated diagnosis: binder kernel, systemd, units, adb bridge, Android networking, stuck WSL service. Turns the troubleshooting table into a command. |
