@@ -1,0 +1,120 @@
+# Builds the WSL2 arm64 kernel with binder (wsl/kernel/) on a native arm64
+# runner and publishes it as a GitHub Release named kernel-<version>, which
+# windows/install-kernel.ps1 downloads instead of building locally.
+name: Build WSL kernel
+
+on:
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: "WSL kernel tags, space-separated (e.g. linux-msft-wsl-6.6.87.2). Empty = Microsoft's latest release."
+        required: false
+        default: ""
+      rebuild:
+        description: "Rebuild and replace releases that already exist"
+        type: boolean
+        default: false
+  schedule:
+    # Mondays: pick up new Microsoft kernel releases.
+    - cron: "0 6 * * 1"
+  push:
+    branches: [main]
+    paths:
+      - "wsl/kernel/**"
+      - ".github/workflows/build-kernel.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - name: Decide which kernels to build
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAGS: ${{ inputs.tags }}
+          REBUILD: ${{ inputs.rebuild }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          latest=$(gh api repos/microsoft/WSL2-Linux-Kernel/releases/latest --jq .tag_name)
+          case "$EVENT" in
+            workflow_dispatch) tags="${INPUT_TAGS:-$latest}" ;;
+            schedule)          tags="$latest" ;;
+            # A config change must refresh every kernel already published.
+            push)              tags="$(gh release list -R "$GITHUB_REPOSITORY" --limit 100 --json tagName \
+                                  --jq '.[].tagName | select(startswith("kernel-")) | "linux-msft-wsl-" + ltrimstr("kernel-")')"
+                               REBUILD=true ;;
+          esac
+
+          todo=()
+          for tag in $tags; do
+            version="${tag#linux-msft-wsl-}"
+            if [ "$REBUILD" != "true" ] && gh release view "kernel-$version" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              echo "kernel-$version already published, skipping"
+              continue
+            fi
+            todo+=("$tag")
+          done
+          matrix=$(printf '%s\n' "${todo[@]}" | jq -R . | jq -cs '{tag: map(select(length > 0))}')
+          echo "Building: $matrix"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: plan
+    if: ${{ fromJSON(needs.plan.outputs.matrix).tag[0] != null }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build kernel
+        env:
+          WORK_DIR: ${{ runner.temp }}/kernel
+          OUT_DIR: ${{ runner.temp }}/out
+        run: bash wsl/kernel/build-kernel.sh "${{ matrix.tag }}"
+
+      - name: Package
+        id: pkg
+        working-directory: ${{ runner.temp }}/out
+        run: |
+          set -euo pipefail
+          version="${{ matrix.tag }}"; version="${version#linux-msft-wsl-}"
+          sha256sum Image > Image.sha256
+          release=$(make -s -C "${{ runner.temp }}/kernel/WSL2-Linux-Kernel" kernelrelease)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+          ls -la
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.pkg.outputs.version }}
+          KRELEASE: ${{ steps.pkg.outputs.release }}
+        working-directory: ${{ runner.temp }}/out
+        run: |
+          set -euo pipefail
+          tag="kernel-$VERSION"
+          notes="WSL2 arm64 kernel \`$KRELEASE\` with binder, built from Microsoft's \`${{ matrix.tag }}\` plus [\`wsl/kernel/waydroid.config\`](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_SHA}/wsl/kernel/waydroid.config) at ${GITHUB_SHA::7}.
+
+          Install it with \`.\\windows\\install-kernel.ps1\` (it picks the release matching your WSL kernel and checks \`Image.sha256\`).
+
+          | File | Contents |
+          |---|---|
+          | \`Image\` | Kernel image for \`kernel=\` in \`.wslconfig\` |
+          | \`Image.sha256\` | SHA-256 of \`Image\` |
+          | \`config\` | Full kernel configuration used for the build |"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --title "WSL kernel $VERSION + binder (arm64)" --notes "$notes" --target "$GITHUB_SHA"
+          else
+            gh release edit "$tag" --notes "$notes"
+          fi
+          gh release upload "$tag" Image Image.sha256 config --clobber

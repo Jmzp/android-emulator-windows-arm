@@ -4,6 +4,8 @@ $Distro   = if ($env:ANDROID_WSL_DISTRO) { $env:ANDROID_WSL_DISTRO } else { 'Ubu
 $AdbPort  = if ($env:ANDROID_WSL_ADB_PORT) { [int]$env:ANDROID_WSL_ADB_PORT } else { 5555 }
 $RepoRoot = Split-Path $PSScriptRoot -Parent
 $KernelDir = Join-Path $env:USERPROFILE 'wsl-kernel'
+# GitHub repo whose Releases hold the prebuilt kernels (see build-kernel.yml).
+$ReleaseRepo = if ($env:ANDROID_WSL_RELEASE_REPO) { $env:ANDROID_WSL_RELEASE_REPO } else { 'Jmzp/android-emulator-windows-arm' }
 $WslConfig = Join-Path $env:USERPROFILE '.wslconfig'
 
 # Make wsl.exe's own messages (wsl -l, --status) UTF-8 instead of UTF-16.

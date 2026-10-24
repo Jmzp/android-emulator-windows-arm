@@ -52,7 +52,7 @@ Necesitas Windows 11 on ARM, WSL 2 (`wsl --version`), `adb.exe` de las platform-
 ```powershell
 .\windows\setup-wsl.ps1        # 1. Ubuntu 24.04 arm64 en WSL, con systemd          (~3 min)
 .\windows\configure-wsl.ps1    # 2. Limita WSL a 4 GB de RAM / 4 núcleos             (instantáneo)
-.\windows\install-kernel.ps1   # 3. Compila y activa un kernel de WSL con binder     (20-60 min, una vez)
+.\windows\install-kernel.ps1   # 3. Descarga y activa el kernel con binder precompilado (~1 min)
 .\windows\android.ps1 setup    # 4. Instala Waydroid y descarga Android (~800 MB)    (10-20 min)
 .\windows\create-shortcut.ps1  # 5. Opcional: ícono "Android Emulator" en el escritorio
 ```
@@ -143,6 +143,20 @@ Cada pieza resuelve un problema concreto:
 | El diálogo "¿Permitir depuración USB?" impide automatizar | `start` autoriza de antemano tu `adbkey.pub` de Windows dentro de Android |
 | No hay GPU para el Mesa de Waydroid en WSL | El render usa ANGLE + SwiftShader (por software). Para la UI de una app es de sobra |
 
+## Kernels precompilados
+
+No necesitas compilar nada. Un [workflow de GitHub Actions](.github/workflows/build-kernel.yml) compila el kernel con binder en un runner arm64 nativo y lo publica en [Releases](https://github.com/Jmzp/android-emulator-windows-arm/releases) como `kernel-<versión>`, con el `Image`, su `Image.sha256` y la `config` completa.
+
+`install-kernel.ps1` lee la versión de tu kernel de WSL (`uname -r`), descarga el release correspondiente y verifica el SHA-256 antes de usarlo. Si no hay release para tu versión, lo compila localmente.
+
+```powershell
+.\windows\install-kernel.ps1                     # kernel precompilado para tu WSL (cerca de un minuto)
+.\windows\install-kernel.ps1 -Version 6.6.87.2   # una versión precompilada específica
+.\windows\install-kernel.ps1 -Build              # compilarlo localmente (20-60 min)
+```
+
+Los nuevos releases del kernel de Microsoft se detectan cada lunes, y cualquier cambio en `wsl/kernel/` recompila todos los kernels publicados. Para compilar otra versión a pedido: **Actions → Build WSL kernel → Run workflow**, con tags como `linux-msft-wsl-6.18.54.1`. Los forks pueden apuntar el instalador a sus propios releases con `ANDROID_WSL_RELEASE_REPO`.
+
 ## Configuración
 
 ### RAM y CPU
@@ -154,7 +168,7 @@ Android vive dentro de la VM de WSL, así que los límites de `.wslconfig` son s
 .\windows\configure-wsl.ps1 -MemoryGB 6 -Processors 6  # más holgura
 ```
 
-Android 13 usa unos 2–3 GB en reposo, así que 4 GB alcanzan para desarrollar. Si vas a recompilar el kernel, sube a 6 GB o más mientras tanto: el enlazado consume mucha memoria.
+Android 13 usa unos 2–3 GB en reposo, así que 4 GB alcanzan para desarrollar. Si compilas el kernel localmente (`-Build`), sube a 6 GB o más mientras tanto: el enlazado consume mucha memoria.
 
 ### Tamaño y densidad de pantalla
 
@@ -172,16 +186,19 @@ adb shell wm size reset; adb shell wm density reset
 |---|---|---|
 | `ANDROID_WSL_DISTRO` | `Ubuntu-24.04` | Distro de WSL que hospeda Android |
 | `ANDROID_WSL_ADB_PORT` | `5555` | Puerto del puente adb dentro de WSL |
+| `ANDROID_WSL_RELEASE_REPO` | `Jmzp/android-emulator-windows-arm` | De dónde descarga `install-kernel.ps1` los kernels precompilados |
 
 Las propiedades de sistema de Android están en la sección `[properties]` de `/var/lib/waydroid/waydroid.cfg`, que inicializa [`setup-waydroid.sh`](wsl/setup-waydroid.sh). Después de editarlas, ejecuta `sudo waydroid upgrade --offline`.
 
 ## Estructura del proyecto
 
 ```
+.github/workflows/
+  build-kernel.yml           Compila el kernel en runners arm64 y publica los Releases
 windows/                     PowerShell, se ejecuta desde Windows
   setup-wsl.ps1              Instala y prepara la distro Ubuntu
   configure-wsl.ps1          Límites de RAM / CPU / swap para WSL
-  install-kernel.ps1         Compila y activa el kernel con binder (-Revert para deshacer)
+  install-kernel.ps1         Descarga (o compila con -Build) y activa el kernel con binder (-Revert para deshacer)
   android.ps1                setup | start | stop | status
   rn-connect.ps1             adb reverse para Metro / Expo
   create-shortcut.ps1        Acceso directo con ícono en el escritorio
@@ -196,6 +213,7 @@ wsl/                         Bash, corre dentro de la distro
   keep-alive.sh              Mantiene WSL encendido mientras la ventana de Android está abierta
 assets/                      Ícono del acceso directo
 docs/images/                 Capturas de pantalla
+ROADMAP.md                   Lo que viene
 ```
 
 ## Solución de problemas
@@ -256,6 +274,10 @@ Remove-Item "$([Environment]::GetFolderPath('Desktop'))\Android Emulator.lnk"
 ```
 
 Para recuperar tus límites anteriores de WSL, copia `%USERPROFILE%\.wslconfig.bak` encima de `.wslconfig`.
+
+## Roadmap
+
+Serial fijo `emulator-5554`, instalador en un paso, comando `doctor`, investigación de aceleración por GPU y más: mira [ROADMAP.md](ROADMAP.md) (en inglés). Las ideas y los pull requests son bienvenidos.
 
 ## Créditos
 

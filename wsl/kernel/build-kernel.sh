@@ -47,5 +47,7 @@ done
 echo "==> Building Image with $(nproc) jobs (this takes a while)"
 make -j"$(nproc)" Image
 
+mkdir -p "$OUT_DIR"
 cp arch/arm64/boot/Image "$OUT_DIR/Image"
+cp .config "$OUT_DIR/config"
 echo "==> Done: $OUT_DIR/Image ($(make -s kernelrelease))"
