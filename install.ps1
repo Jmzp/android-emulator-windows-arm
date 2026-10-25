@@ -25,7 +25,7 @@ if ($env:PROCESSOR_ARCHITECTURE -ne 'ARM64') { $problems += "This is not an ARM6
 if ([Environment]::OSVersion.Version.Build -lt 22000) { $problems += 'Windows 11 is required.' }
 & wsl.exe --version *> $null
 if ($LASTEXITCODE -ne 0) { $problems += 'WSL is not installed. Run "wsl --install --no-distribution" as administrator, reboot, then run this again.' }
-try { $adb = Get-Adb } catch { $problems += 'adb.exe was not found. Install it with "winget install Google.PlatformTools" (or Android Studio), then run this again.' }
+try { $null = Get-Adb } catch { $problems += 'adb.exe was not found. Install it with "winget install Google.PlatformTools" (or Android Studio), then run this again.' }
 $freeGB = [math]::Floor((Get-PSDrive ($env:SystemDrive.TrimEnd(':'))).Free / 1GB)
 if ($freeGB -lt 10) { $problems += "Only $freeGB GB free on $env:SystemDrive; about 10 GB are needed." }
 if ($problems) {

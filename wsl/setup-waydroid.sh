@@ -23,7 +23,7 @@ fi
 
 echo "==> Installing dependencies"
 sudo apt-get update -qq
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates socat adb python3 weston
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates socat adb python3 weston zstd
 
 if ! command -v waydroid >/dev/null; then
   echo "==> Adding Waydroid repository"

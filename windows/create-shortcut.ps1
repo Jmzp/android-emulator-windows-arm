@@ -1,14 +1,17 @@
 <#
 .SYNOPSIS
-  Creates a desktop shortcut that starts Android and leaves adb connected.
-  The console window stays open showing the device serial and can be closed
-  at any time. Closing the Android window shuts Android down.
+  Creates a desktop shortcut that starts Android and leaves adb connected,
+  plus a "Send to" entry that installs APKs. The console window stays open
+  showing the device serial and can be closed at any time. Closing the
+  Android window shuts Android down.
 .EXAMPLE
   .\windows\create-shortcut.ps1
+  .\windows\create-shortcut.ps1 -Device pixel
   .\windows\create-shortcut.ps1 -Name 'Android' -Window 480x1040
 #>
 param(
     [string]$Name = 'Android Emulator',
+    [ValidateSet('phone', 'small', 'pixel', 'tablet')][string]$Device,
     [string]$Window
 )
 $ErrorActionPreference = 'Stop'
@@ -61,16 +64,26 @@ if (-not $shell) { $shell = (Get-Command powershell.exe).Source }
 
 $script = Join-Path $PSScriptRoot 'android.ps1'
 $arguments = "-NoExit -ExecutionPolicy Bypass -File `"$script`" start"
+if ($Device) { $arguments += " -Device $Device" }
 if ($Window) { $arguments += " -Window $Window" }
 
-# There is no stop shortcut on purpose: closing the Android window shuts it down.
-$lnkPath = Join-Path ([Environment]::GetFolderPath('Desktop')) "$Name.lnk"
 $wsh = New-Object -ComObject WScript.Shell
-$lnk = $wsh.CreateShortcut($lnkPath)
-$lnk.TargetPath = $shell
-$lnk.Arguments = $arguments
-$lnk.WorkingDirectory = $RepoRoot
-$lnk.IconLocation = "$icon,0"
-$lnk.Description = 'Start Android (Waydroid on WSL) and connect adb'
-$lnk.Save()
-Write-Host "==> Shortcut created: $lnkPath"
+function New-Shortcut([string]$Path, [string]$Arguments, [string]$Description) {
+    $lnk = $wsh.CreateShortcut($Path)
+    $lnk.TargetPath = $shell
+    $lnk.Arguments = $Arguments
+    $lnk.WorkingDirectory = $RepoRoot
+    $lnk.IconLocation = "$icon,0"
+    $lnk.Description = $Description
+    $lnk.Save()
+    Write-Host "==> Shortcut created: $Path"
+}
+
+# There is no stop shortcut on purpose: closing the Android window shuts it down.
+New-Shortcut (Join-Path ([Environment]::GetFolderPath('Desktop')) "$Name.lnk") $arguments `
+    'Start Android (Waydroid on WSL) and connect adb'
+
+# Right-click an .apk > Send to > Android Emulator. Explorer appends the
+# selected files as extra arguments.
+New-Shortcut (Join-Path ([Environment]::GetFolderPath('SendTo')) "$Name.lnk") `
+    "-ExecutionPolicy Bypass -File `"$script`" install -Pause" 'Install APKs on the Android emulator'

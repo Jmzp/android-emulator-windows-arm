@@ -14,15 +14,17 @@ Where this project is heading, ordered by impact versus effort. Ideas and pull r
 | ✅ | **`android.ps1 doctor`** | About 30 checks across Windows, WSL, kernel, Waydroid, systemd units, the adb bridge, Android networking and a hung WSL service, each with a fix. |
 | ✅ | **Automatic `adb reverse` on start** | `start` reverses Metro (8081) and Expo (19000–19002); `-NoReverse` opts out, `rn-connect.ps1 -Ports` adds more. |
 
-## Phase 2: developer experience
+## Phase 2: developer experience 🚧
 
-| | Item | Why it matters |
+| | Item | Result / why it matters |
 |---|---|---|
-| ⬜ | **Device profiles and rotation** | Presets such as `-Device small` / `pixel` / `tablet` set window size and density in one go; `rotate` swaps portrait and landscape. |
-| ⬜ | **Shared clipboard and drag-and-drop APK install** | Copy and paste between Windows and Android; drop an `.apk` on the window to install it. |
-| ⬜ | **Snapshots and "wipe data"** | Back up and restore Android's data to get back to a clean state in seconds, like AVD's *Wipe Data*. |
-| ⬜ | **Screenshot and screen-recording shortcuts** | Save `screencap` / `screenrecord` output straight into a Windows folder, handy for PRs and QA. |
-| ⬜ | **Proper window title and icon** | The window says "Weston Compositor" and groups with WSL in the taskbar; it should read "Android Emulator". |
+| ✅ | **Device profiles and rotation** | `-Device phone / small / pixel / tablet` sets window size and density together; `rotate` swaps portrait and landscape (a ~30 s restart, since the window can't resize while Android runs). |
+| ✅ | **Snapshots and "wipe data"** | `snapshot save / restore / list / delete` keeps Android's user data (~100 MB); `wipe` gives a fresh first boot, like AVD's *Wipe Data*. |
+| ✅ | **Screenshots and screen recording** | `screenshot` and `record` save into Pictures / Videos. Android's `screenrecord` hangs in Waydroid, so recording grabs `screencap` frames from WSL and encodes them with ffmpeg at 15 fps. |
+| ✅ | **Easy APK install** | `android.ps1 install app.apk`, plus **Send to → Android Emulator** in Explorer's right-click menu. Dropping files on the window isn't possible: the nested Weston has no drag-and-drop to Android. |
+| ⬜ | **Google Play services (GAPPS)** | Firebase Cloud Messaging, Google Sign-In, Maps and AdMob need Play services. Waydroid publishes a GAPPS `arm64_only` image; the work is a safe switch between VANILLA and GAPPS (keeping both images), a guided device registration with Google, and documenting what can't work (Play Integrity fails on an uncertified device). |
+| ⬜ | **Shared clipboard** | Copy and paste between Windows and Android. WSLg syncs the clipboard, but the nested Weston likely cuts it off; needs research. |
+| ⬜ | **Proper window title and icon** | The window says "Weston Compositor" and groups with WSL in the taskbar; it should read "Android Emulator". Weston's Wayland backend hardcodes the title. |
 
 ## Phase 3: research
 
@@ -32,11 +34,11 @@ Where this project is heading, ordered by impact versus effort. Ideas and pull r
 | 🔬 | **More Android versions** | Offer newer LineageOS images (21+) as Waydroid ships them, to test across API levels. |
 | 🔬 | **Audio, camera and location** | Audio is wired through WSLg's PulseAudio but untested. Location can be mocked with a mock-location app; camera needs research. |
 
-## Phase 4: community and distribution
+## Phase 4: community and distribution 🚧
 
 | | Item | Why it matters |
 |---|---|---|
-| ⬜ | **CI quality checks** | `shellcheck` for Bash and `PSScriptAnalyzer` for PowerShell on every pull request. |
+| ✅ | **CI quality checks** | [`lint.yml`](.github/workflows/lint.yml) runs `shellcheck`, `PSScriptAnalyzer` (rules in [`PSScriptAnalyzerSettings.psd1`](PSScriptAnalyzerSettings.psd1)) and a Python compile check on every push and pull request. |
 | ⬜ | **System tray app** | A tray icon showing whether Android is on, with start / stop / copy serial; could ship through `winget`. |
-| ⬜ | **Compatibility matrix** | Collect reports from Snapdragon X Elite, X2 and Windows 11 Pro machines, with issue templates for bugs and tested devices. |
-| ⬜ | **Demo GIF in the README** | A short clip of opening the emulator and hot-reloading an app is the fastest way to show what this does. |
+| 🚧 | **Compatibility matrix** | Issue templates for bugs (asks for `doctor` output) and tested devices are in place; the matrix grows as reports from X Elite, X2 and Windows 11 Pro machines come in. |
+| ✅ | **Demo GIF in the README** | A Fast Refresh clip recorded with `android.ps1 record` (22 KB). |

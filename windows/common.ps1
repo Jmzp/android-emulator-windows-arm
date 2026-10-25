@@ -37,9 +37,37 @@ if ($AdbPort -lt 5555 -or $AdbPort -gt 5585 -or $AdbPort % 2 -eq 0) {
 # 127.0.0.1, so adb lists the device as a regular emulator with a fixed serial.
 function Get-AndroidSerial { "emulator-$($AdbPort - 1)" }
 
+# A running adb server only scans emulator ports when it starts. Real emulators
+# announce themselves by sending "host:emulator:<adb port>" to it; do the same.
+function Register-Emulator([string]$Adb) {
+    & $Adb start-server 2>$null | Out-Null
+    $msg = "host:emulator:$AdbPort"
+    $client = [Net.Sockets.TcpClient]::new()
+    try {
+        $client.Connect('127.0.0.1', 5037)
+        $bytes = [Text.Encoding]::ASCII.GetBytes(('{0:x4}{1}' -f $msg.Length, $msg))
+        $client.GetStream().Write($bytes, 0, $bytes.Length)
+    } catch {
+        Write-Warning "Could not register with the adb server: $_"
+    } finally { $client.Dispose() }
+}
+
 function Get-WslIp {
     ((& wsl.exe -d $Distro -- hostname -I) -split '\s+' | Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' } | Select-Object -First 1)
 }
+
+# Window size in pixels and Android density (dpi). The size Android apps see,
+# in dp, is pixels * 160 / dpi: phone 384x832, small 360x640, pixel 412x915
+# (a Pixel 7), tablet 1280x800 (smallest width 800dp, so tablet layouts kick in).
+$DeviceProfiles = [ordered]@{
+    phone  = @{ Window = '432x936';  Density = 180 }
+    small  = @{ Window = '405x720';  Density = 180 }
+    pixel  = @{ Window = '412x915';  Density = 160 }
+    tablet = @{ Window = '1280x800'; Density = 160 }
+}
+
+# Where Windows-side state lives (the last start options, used by rotate).
+$StateDir = Join-Path $env:LOCALAPPDATA 'android-wsl'
 
 # Metro (8081) and the Expo dev server ports.
 $DefaultReversePorts = @(8081, 19000, 19001, 19002)

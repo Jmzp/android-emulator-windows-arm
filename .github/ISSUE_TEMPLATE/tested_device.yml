@@ -1,0 +1,51 @@
+name: Tested device report
+description: Tell us it works (or not) on your machine, for the compatibility list.
+title: "Tested: <device>"
+labels: [compatibility]
+body:
+  - type: markdown
+    attributes:
+      value: Each report adds a row to the "Tested on" table in the README. Thanks!
+  - type: input
+    id: device
+    attributes:
+      label: Device
+      placeholder: Surface Laptop 7
+    validations:
+      required: true
+  - type: input
+    id: chip
+    attributes:
+      label: Chip and RAM
+      placeholder: Snapdragon X Elite X1E-80-100, 16 GB
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows edition and build
+      placeholder: Windows 11 Pro 26100
+    validations:
+      required: true
+  - type: input
+    id: wsl
+    attributes:
+      label: WSL version
+      description: First line of `wsl --version`
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result
+      options:
+        - Works fully (window, adb, Expo / React Native)
+        - Works with issues (describe below)
+        - Doesn't work
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Boot time, how smooth it feels, apps you tried, anything odd.

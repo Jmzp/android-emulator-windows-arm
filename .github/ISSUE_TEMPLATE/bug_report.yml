@@ -1,0 +1,51 @@
+name: Bug report
+description: Something doesn't install, start or work as described.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! Running `.\windows\android.ps1 doctor` first often points straight at the fix.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you ran, what you expected and what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `.\windows\android.ps1 doctor`
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Other logs (optional)
+      description: |
+        Useful ones: `wsl -d Ubuntu-24.04 -- journalctl --user -u waydroid-session -n 50`,
+        `wsl -d Ubuntu-24.04 -- sudo waydroid logcat -b crash -d`.
+      render: text
+  - type: input
+    id: device
+    attributes:
+      label: Device and chip
+      placeholder: Surface Pro 11, Snapdragon X Plus
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows edition and build
+      description: Output of `winver`, e.g. Windows 11 Home 26100
+    validations:
+      required: true
+  - type: input
+    id: wsl
+    attributes:
+      label: WSL version
+      description: First line of `wsl --version`
+    validations:
+      required: true

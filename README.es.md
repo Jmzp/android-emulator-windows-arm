@@ -5,13 +5,13 @@
 Ejecuta un dispositivo Android 13 real **de forma nativa** en laptops Windows on ARM (Surface Pro, Snapdragon X), con `adb` conectado y listo para desarrollar en React Native, Expo, Flutter o Kotlin.
 
 <p align="center">
-  <img src="docs/images/expo-app.png" alt="App de Expo corriendo en la ventana del emulador" width="260">
+  <img src="docs/images/demo.gif" alt="Editando una app de Expo en Windows: Fast Refresh actualiza el emulador sin perder el estado" width="260">
   &nbsp;
   <img src="docs/images/android-home.png" alt="Pantalla de inicio de Android" width="260">
   &nbsp;
   <img src="docs/images/about-device.png" alt="Acerca del teléfono: Android 13, LineageOS 20 arm64" width="260">
 </p>
-<p align="center"><sub>Una app de Expo con Fast Refresh, el inicio de Android y "Acerca del teléfono". Las tres son capturas reales en una Surface Pro.</sub></p>
+<p align="center"><sub>Fast Refresh en una app de Expo (el contador sobrevive a la edición), el inicio de Android y "Acerca del teléfono". Todo son capturas reales en una Surface Pro; el GIF se hizo con <code>android.ps1 record</code>.</sub></p>
 
 ---
 
@@ -31,6 +31,7 @@ Este proyecto cubre ese hueco. Android corre en un contenedor [Waydroid](https:/
 - **Aparece como un emulador real.** `adb` lo lista como `emulator-5554`, así que Expo, React Native, Flutter y Android Studio lo detectan sin seriales ni `adb connect`. `adb emu avd name` y `adb emu kill` también funcionan.
 - **Un comando o un doble clic.** Arranca Android, abre una ventana con tamaño de teléfono, conecta `adb` y configura `adb reverse` para Metro. El diálogo de "¿Permitir depuración USB?" nunca aparece.
 - **Hecho para desarrollar.** Funciona de entrada con `adb`, Metro, Expo Go, Fast Refresh y `adb reverse`.
+- **Las comodidades de un emulador.** Perfiles de dispositivo (teléfono, pequeño, Pixel, tablet), rotación, capturas y grabación de pantalla, snapshots y *wipe data*, e instalación de APKs desde el menú contextual del Explorador.
 - **Recursos con tope.** RAM y CPU limitados (4 GB / 4 núcleos por defecto), para que tu IDE y tu navegador sigan fluidos.
 - **Reversible.** Con una opción vuelves al kernel oficial de WSL. En Windows no se instala nada, salvo la configuración de WSL y un acceso directo opcional.
 
@@ -44,7 +45,7 @@ Este proyecto cubre ese hueco. Android corre en un contenedor [Waydroid](https:/
 | Android | Waydroid 1.6.2, LineageOS 20 (Android 13, API 33), imagen `arm64_only` |
 | Verificado con | `adb`, Expo SDK 58 / Expo Go, Fast Refresh, entrada táctil |
 
-Otros equipos Snapdragon X (X Elite, X Plus, X2) deberían comportarse igual. Si pruebas en uno, cuéntanos cómo te fue.
+Otros equipos Snapdragon X (X Elite, X Plus, X2) deberían comportarse igual. Si pruebas en uno, cuéntanos cómo te fue con un [reporte de equipo probado](https://github.com/Jmzp/android-emulator-windows-arm/issues/new?template=tested_device.yml).
 
 ## Inicio rápido
 
@@ -81,7 +82,7 @@ Luego arráncalo:
 ==> Showing Android
 ==> Waiting for Android to boot
 ==> adb bridge: 127.0.0.1:5555 -> 192.168.240.112:5555 (emulator-5554)
-==> Ready: emulator-5554  WayDroid arm64 only Device (arm64-v8a)
+==> Ready: emulator-5554  WayDroid arm64 only Device (arm64-v8a)  phone 432x936 @ 180dpi
     adb reverse: 8081, 19000, 19001, 19002 (Metro / Expo)
     Try: npx expo start --android   |   npx react-native run-android   |   flutter run
 ```
@@ -98,9 +99,15 @@ Luego arráncalo:
 
 ```powershell
 .\windows\android.ps1 start                  # ventana tamaño teléfono (432x936)
-.\windows\android.ps1 start -Window 480x1040 # el tamaño que quieras
+.\windows\android.ps1 start -Device tablet   # un perfil de dispositivo (ver abajo)
 .\windows\android.ps1 start -Full            # usa toda la ventana de WSLg
 .\windows\android.ps1 start -NoReverse       # sin adb reverse para Metro / Expo
+.\windows\android.ps1 rotate                 # vertical <-> horizontal
+.\windows\android.ps1 install app.apk        # instala APKs (arranca Android si hace falta)
+.\windows\android.ps1 screenshot             # PNG en Imágenes\Android Emulator
+.\windows\android.ps1 record                 # MP4 en Videos\Android Emulator; Enter detiene
+.\windows\android.ps1 snapshot save limpio   # guarda apps + datos para restaurarlos luego
+.\windows\android.ps1 wipe                   # restablece apps y datos de fábrica
 .\windows\android.ps1 status                 # estado de Waydroid + adb devices
 .\windows\android.ps1 doctor                 # revisa toda la instalación, con soluciones
 .\windows\android.ps1 stop                   # apaga Android y libera la RAM
@@ -110,7 +117,8 @@ O usa el ícono del escritorio, como cualquier app:
 
 - **Abrir:** doble clic en **Android Emulator**. Una consola arranca Android y espera a que `emulator-5554` esté listo. Puedes cerrar esa consola cuando quieras.
 - **Cerrar:** haz clic en la **X** de la ventana de Android. Android se apaga, el puente adb se detiene y WSL libera la memoria. Es lo mismo que `android.ps1 stop` o `adb emu kill`.
-- **Volver a abrir:** doble clic en el ícono otra vez. Android siempre arranca limpio.
+- **Volver a abrir:** doble clic en el ícono otra vez. Android siempre arranca limpio, con el último perfil que usaste.
+- **Instalar un APK:** clic derecho sobre él en el Explorador → **Enviar a** → **Android Emulator**.
 
 > [!TIP]
 > ¿Algo no anda? Ejecuta `.\windows\android.ps1 doctor`. Revisa Windows, WSL, el kernel, Waydroid, los servicios y `adb`, y muestra la solución de lo que falle.
@@ -126,6 +134,44 @@ npx react-native run-android                  # o React Native sin Expo
 ```
 
 Sin `ANDROID_SERIAL` ni `adb connect`: Expo ve un emulador llamado **Waydroid** (`› Opening exp://… on Waydroid`). Fast Refresh funciona como en cualquier dispositivo: guardas un archivo y la pantalla se actualiza sin perder el estado. Si necesitas reenviar más puertos, usa `.\windows\rn-connect.ps1 -Ports 8081, 3000`.
+
+### Perfiles de dispositivo y rotación
+
+Un perfil fija a la vez el tamaño de la ventana y la densidad de pantalla, para que las apps vean la pantalla de un tipo de dispositivo real:
+
+| `-Device` | Ventana (px) | Densidad | Lo que ven las apps |
+|---|---|---|---|
+| `phone` (por defecto) | 432×936 | 180 dpi | 384×832 dp, un teléfono típico |
+| `small` | 405×720 | 180 dpi | 360×640 dp, un teléfono pequeño o antiguo |
+| `pixel` | 412×915 | 160 dpi | 412×915 dp, igual que un Pixel 7 |
+| `tablet` | 1280×800 | 160 dpi | 1280×800 dp; se activan los layouts de tablet (ancho mínimo ≥ 600 dp) |
+
+`-Window 480x1040` y `-Density 200` reemplazan cualquiera de los dos valores. Cambiar de perfil, o rotar, reinicia Android (~30 s), porque la ventana no puede cambiar de tamaño mientras Android corre. `rotate` invierte la última ventana que usaste: `start -Device pixel` seguido de `rotate` te da un Pixel en horizontal. El ícono del escritorio también puede llevar un perfil: `.\windows\create-shortcut.ps1 -Device pixel`.
+
+### Capturas y grabación de pantalla
+
+```powershell
+.\windows\android.ps1 screenshot                # Imágenes\Android Emulator\screenshot-<fecha>.png
+.\windows\android.ps1 screenshot bug.png        # o la ruta que quieras
+.\windows\android.ps1 record                    # Enter detiene (máximo 3 min)
+.\windows\android.ps1 record -Seconds 15 demo.mp4
+```
+
+Las grabaciones son MP4 H.264 a 15 fps, de sobra para reportar bugs o mostrar un pull request. Se capturan desde WSL, porque el `screenrecord` de Android se cuelga en Waydroid. La primera grabación instala `ffmpeg` dentro de la distro.
+
+### Snapshots y wipe data
+
+Los snapshots guardan los datos de usuario de Android (apps instaladas, sus datos y la configuración), no la imagen del sistema, así que son pequeños (~100 MB) y rápidos:
+
+```powershell
+.\windows\android.ps1 snapshot save con-sesion   # Android se reinicia si estaba corriendo
+.\windows\android.ps1 snapshot list
+.\windows\android.ps1 snapshot restore con-sesion
+.\windows\android.ps1 snapshot delete con-sesion
+.\windows\android.ps1 wipe                       # como el "Wipe Data" de un AVD: un primer arranque limpio
+```
+
+`restore` y `wipe` piden confirmación (`-Force` la omite). Sirven para probar una y otra vez el onboarding, los diálogos de permisos o la primera instalación. Los snapshots se guardan dentro de la distro, en `~/.local/share/android-wsl/snapshots`.
 
 ### Flutter, Android Studio y otras herramientas
 
@@ -185,13 +231,7 @@ Android 13 usa unos 2–3 GB en reposo, así que 4 GB alcanzan para desarrollar.
 
 ### Tamaño y densidad de pantalla
 
-El tamaño de la ventana es el tamaño de pantalla que ve Android. El valor por defecto, 432×936 a densidad 180, se comporta como un teléfono de ~384×832 dp. Puedes cambiarlo en cada arranque (`-Window 480x1040`) o simular otros dispositivos dentro de la misma ventana:
-
-```powershell
-adb shell wm density 160        # cabe más contenido (o 200 para elementos más grandes)
-adb shell wm size 1080x2340     # otra resolución lógica, escalada a la ventana
-adb shell wm size reset; adb shell wm density reset
-```
+El tamaño de la ventana es el tamaño de pantalla que ve Android. Usa un [perfil de dispositivo](#perfiles-de-dispositivo-y-rotación) o fija ambos a mano: `start -Window 480x1040 -Density 200`. `start` aplica la densidad en cada arranque, así que un `adb shell wm density` manual dura hasta el siguiente arranque.
 
 ### Variables de entorno
 
@@ -209,14 +249,18 @@ Las propiedades de sistema de Android están en la sección `[properties]` de `/
 install.ps1                  Instalador en un paso (verificaciones + todos los pasos)
 .github/workflows/
   build-kernel.yml           Compila el kernel en runners arm64 y publica los Releases
+  lint.yml                   shellcheck + PSScriptAnalyzer en cada push y pull request
+.github/ISSUE_TEMPLATE/      Plantillas de bug y de equipo probado
+PSScriptAnalyzerSettings.psd1  Reglas de lint para los scripts de PowerShell
 windows/                     PowerShell, se ejecuta desde Windows
   setup-wsl.ps1              Instala y prepara la distro Ubuntu
   configure-wsl.ps1          Límites de RAM / CPU / swap para WSL
   install-kernel.ps1         Descarga (o compila con -Build) y activa el kernel con binder (-Revert para deshacer)
-  android.ps1                setup | start | stop | status | doctor
+  android.ps1                start | stop | rotate | install | screenshot | record |
+                             snapshot | wipe | status | doctor | setup
   doctor.ps1                 Diagnóstico detrás de `android.ps1 doctor`
   rn-connect.ps1             Puertos extra de adb reverse (start ya hace Metro / Expo)
-  create-shortcut.ps1        Acceso directo con ícono en el escritorio
+  create-shortcut.ps1        Acceso directo con ícono, más el instalador de APKs en "Enviar a"
   common.ps1                 Funciones compartidas
 wsl/                         Bash, corre dentro de la distro
   kernel/build-kernel.sh     Clona, configura y compila el kernel de WSL
@@ -226,6 +270,8 @@ wsl/                         Bash, corre dentro de la distro
   emu-console.sh             Consola mínima de emulador para `adb emu`
   doctor.sh                  Verificaciones de Linux para `doctor`
   stop-android.sh            Detiene todo lo anterior
+  snapshot.sh                Guarda / restaura / borra los datos de Android
+  record.py                  Grabación de pantalla (cuadros de screencap -> ffmpeg)
   authorize-adb.sh           Autoriza una clave adb de Windows dentro de Android
   keep-alive.sh              Mantiene WSL encendido mientras la ventana de Android está abierta
 assets/                      Ícono del acceso directo
@@ -268,14 +314,15 @@ sudo tail /var/lib/waydroid/waydroid.log
 
 | Síntoma | Solución |
 |---|---|
-| `emulator-5554` no aparece | Ejecuta `doctor`. `127.0.0.1:5555` debe estar reenviado desde WSL (no pongas `localhostForwarding=false` en `.wslconfig`) y la unidad `waydroid-adb-bridge` debe estar activa. |
+| `emulator-5554` no aparece | `start` lo registra en el servidor de adb que esté corriendo. Si aun así no aparece, ejecuta `adb kill-server` y luego `adb devices`, o ejecuta `doctor`. `127.0.0.1:5555` debe estar reenviado desde WSL (no pongas `localhostForwarding=false` en `.wslconfig`) y la unidad `waydroid-adb-bridge` debe estar activa. |
 | El dispositivo aparece dos veces (`emulator-5554` y `<ip>:5555`) | Es una conexión vieja por IP. `start` la elimina; o ejecuta `adb disconnect <ip>:5555`. |
 | `failed to authenticate` | Regeneraste `%USERPROFILE%\.android\adbkey`. Ejecuta `android.ps1 start` de nuevo para autorizar la nueva clave. |
 | El dispositivo aparece `offline` | Android se detuvo o WSL se reinició. Ejecuta `android.ps1 start`. |
 
 ## Limitaciones
 
-- **No es un AVD.** Aparece como `emulator-5554`, pero el Device Manager de Android Studio no puede crearlo, borrarlo ni configurarlo como un AVD.
+- **No es un AVD.** Aparece como `emulator-5554`, pero el Device Manager de Android Studio no puede administrarlo. Para perfiles, snapshots y wipes usa `android.ps1`.
+- **Rotar reinicia Android.** La ventana no puede cambiar de tamaño mientras Android corre, así que `rotate` y los cambios de perfil toman un reinicio de ~30 s.
 - **Render por software.** Sirve para la UI de apps y para desarrollar, pero no para juegos o 3D pesado.
 - **Una sola versión de Android.** LineageOS 20 (Android 13, API 33). No se puede cambiar de nivel de API como con las imágenes de AVD.
 - **Solo apps arm64.** Los Snapdragon X no ejecutan código ARM de 32 bits, así que Waydroid usa la imagen `arm64_only`. Las apps solo x86 o solo `armeabi-v7a` no se instalan. Los builds de React Native y Expo incluyen `arm64-v8a` por defecto.
@@ -288,13 +335,14 @@ sudo tail /var/lib/waydroid/waydroid.log
 wsl --unregister Ubuntu-24.04                  # borra la distro y todo su contenido
 Remove-Item "$env:USERPROFILE\wsl-kernel" -Recurse
 Remove-Item "$([Environment]::GetFolderPath('Desktop'))\Android Emulator.lnk"
+Remove-Item "$([Environment]::GetFolderPath('SendTo'))\Android Emulator.lnk"
 ```
 
 Para recuperar tus límites anteriores de WSL, copia `%USERPROFILE%\.wslconfig.bak` encima de `.wslconfig`.
 
 ## Roadmap
 
-La Fase 1 está completa (kernels precompilados, `emulator-5554`, `install.ps1`, `doctor`, `adb reverse` automático). Lo siguiente: perfiles de dispositivo, portapapeles compartido, snapshots e investigación de aceleración por GPU. Mira [ROADMAP.md](ROADMAP.md) (en inglés). Las ideas y los pull requests son bienvenidos.
+La Fase 1 está completa y la mayor parte de la Fase 2 también: perfiles de dispositivo, rotación, snapshots, capturas, grabación e instalación de APKs. Lo siguiente: los servicios de Google Play (GAPPS) para Firebase y AdMob, un portapapeles compartido e investigar la aceleración por GPU. Mira [ROADMAP.md](ROADMAP.md) (en inglés). Las ideas y los pull requests son bienvenidos.
 
 ## Créditos
 
