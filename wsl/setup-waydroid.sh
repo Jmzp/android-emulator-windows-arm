@@ -2,15 +2,18 @@
 # Installs and initializes Waydroid inside the Ubuntu WSL distro.
 # Run as your normal (non-root) user once the binder kernel is active.
 #
-#   ./setup-waydroid.sh [VANILLA|GAPPS] [OWNER/REPO]
+#   ./setup-waydroid.sh [VANILLA|GAPPS|KEEP] [OWNER/REPO]
 #
-# VANILLA (default): plain LineageOS, install Expo Go / your APKs with adb.
-# GAPPS: includes Play Store (needs device registration with Google).
+# VANILLA: plain LineageOS, install Expo Go / your APKs with adb.
+# GAPPS: includes Play Store and Play services (needs device registration).
+# KEEP (default): keep the image type already installed, VANILLA on a new
+# install. Switching types keeps Android's apps and data.
 # OWNER/REPO: GitHub repo whose `ota` branch mirrors the images (see
-# .github/workflows/mirror-android-images.yml); "official" skips the mirror.
+# install-images.py); "official" skips the mirror.
 set -euo pipefail
 
-SYSTEM_TYPE="${1:-VANILLA}"
+SYSTEM_TYPE="${1:-KEEP}"
+[ "$SYSTEM_TYPE" = KEEP ] && SYSTEM_TYPE=""
 MIRROR_REPO="${2:-Jmzp/android-emulator-windows-arm}"
 
 if ! grep -q binder /proc/filesystems; then
@@ -26,7 +29,7 @@ fi
 
 echo "==> Installing dependencies"
 sudo apt-get update -qq
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates socat adb python3 weston zstd
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates socat adb python3 weston zstd aria2
 
 if ! command -v waydroid >/dev/null; then
   echo "==> Adding Waydroid repository"
@@ -34,24 +37,24 @@ if ! command -v waydroid >/dev/null; then
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq waydroid
 fi
 
-if [ ! -f /var/lib/waydroid/waydroid.cfg ]; then
-  # Waydroid's own images come from SourceForge, which can be very slow. The
-  # mirror serves the same files (same SHA-256) from GitHub Releases. Use it
-  # when it has this architecture and image type, else the official channel.
-  SYSTEM_CHANNEL=https://ota.waydro.id/system
-  VENDOR_CHANNEL=https://ota.waydro.id/vendor
-  ARCH="$(python3 -c 'import sys; sys.path.insert(0, "/usr/lib/waydroid"); from tools.helpers import arch; print(arch.host())' 2>/dev/null || true)"
-  MIRROR="https://raw.githubusercontent.com/$MIRROR_REPO/ota"
-  if [ "$MIRROR_REPO" != official ] && [ -n "$ARCH" ] &&
-     curl -fsI "$MIRROR/system/lineage/waydroid_$ARCH/$SYSTEM_TYPE.json" >/dev/null &&
-     curl -fsI "$MIRROR/vendor/waydroid_$ARCH/MAINLINE.json" >/dev/null; then
-    SYSTEM_CHANNEL="$MIRROR/system"
-    VENDOR_CHANNEL="$MIRROR/vendor"
-    echo "==> Downloading Android images ($SYSTEM_TYPE, $ARCH) from the GitHub mirror — ~1 GB"
-  else
-    echo "==> Downloading Android images ($SYSTEM_TYPE, ${ARCH:-arm64}) from SourceForge — ~1 GB, can be slow"
+# The image type in use, from the channel file waydroid.cfg points at.
+CURRENT="$(sed -n 's#^system_ota = .*/\([A-Z_]*\)\.json$#\1#p' /var/lib/waydroid/waydroid.cfg 2>/dev/null || true)"
+if [ -f /var/lib/waydroid/waydroid.cfg ] && [ -z "$CURRENT" ] && [ -z "$SYSTEM_TYPE" ]; then
+  echo "==> Keeping the existing Android images (not from an OTA channel)"
+else
+  SYSTEM_TYPE="${SYSTEM_TYPE:-${CURRENT:-VANILLA}}"
+  if [ "$SYSTEM_TYPE" != "$CURRENT" ]; then
+    if waydroid status 2>/dev/null | grep -q "Session:.*RUNNING"; then
+      echo "Android is running; stop it before switching images." >&2
+      exit 1
+    fi
+    if [ -n "$CURRENT" ]; then
+      echo "==> Switching Android from $CURRENT to $SYSTEM_TYPE (installed apps and data are kept)"
+    else
+      echo "==> Installing Android images ($SYSTEM_TYPE)"
+    fi
+    python3 "$(dirname "$(readlink -f "$0")")/install-images.py" "$SYSTEM_TYPE" "$MIRROR_REPO"
   fi
-  sudo waydroid init -s "$SYSTEM_TYPE" -c "$SYSTEM_CHANNEL" -v "$VENDOR_CHANNEL"
 fi
 
 echo "==> Applying WSL-friendly properties"

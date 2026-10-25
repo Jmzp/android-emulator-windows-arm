@@ -33,6 +33,8 @@ for bin in waydroid weston socat; do
 done
 if [ -f /var/lib/waydroid/waydroid.cfg ]; then pass "Android images initialized"
 else fail "Android images not downloaded" "Run .\\windows\\android.ps1 setup"; fi
+image="$(sed -n 's#^system_ota = .*/\([A-Z_]*\)\.json$#\1#p' /var/lib/waydroid/waydroid.cfg 2>/dev/null || true)"
+[ -n "$image" ] && info "Android image: $image"
 if grep -qE '^persist\.waydroid\.(width|height)' /var/lib/waydroid/waydroid.cfg 2>/dev/null; then
   warn "Fixed width/height set in waydroid.cfg (causes a black screen)" "Run .\\windows\\android.ps1 setup to remove them"
 fi

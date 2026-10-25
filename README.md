@@ -93,7 +93,7 @@ Then start it:
 > [!IMPORTANT]
 > The installer creates a user with passwordless `sudo` **inside the Ubuntu distro** (`/etc/sudoers.d/90-android-wsl`). That's what lets the Windows scripts drive WSL without stopping at a password prompt.
 
-Want the Play Store? Install with `.\install.ps1 -Gapps`, then [register the device with Google](https://www.google.com/android/uncertified).
+Need Google Play services for Firebase or AdMob? See [Google Play services](#google-play-services-firebase-admob-maps).
 
 ## Daily use
 
@@ -108,6 +108,7 @@ Want the Play Store? Install with `.\install.ps1 -Gapps`, then [register the dev
 .\windows\android.ps1 record                 # MP4 into Videos\Android Emulator; Enter stops
 .\windows\android.ps1 snapshot save clean    # save apps + data, restore them later
 .\windows\android.ps1 wipe                   # factory reset of apps and data
+.\windows\android.ps1 setup -Gapps          # Play Store + Play services (-Vanilla to go back)
 .\windows\android.ps1 status                 # Waydroid state + adb devices
 .\windows\android.ps1 doctor                 # check the whole setup, with fixes
 .\windows\android.ps1 stop                   # shut Android down and free the RAM
@@ -173,6 +174,24 @@ Snapshots save Android's user data (installed apps, their data and settings), no
 
 `restore` and `wipe` ask for confirmation (`-Force` skips it). They're handy for testing onboarding, permission prompts or a first install over and over. Snapshots live inside the distro, in `~/.local/share/android-wsl/snapshots`.
 
+### Google Play services (Firebase, AdMob, Maps)
+
+The default image is plain LineageOS (VANILLA). If your app uses Firebase Cloud Messaging, Google Sign-In, Maps or AdMob, switch to the GAPPS image, which adds the Play Store and Play services:
+
+```powershell
+.\windows\android.ps1 setup -Gapps      # switch (~2 min the first time); apps and data are kept
+.\windows\android.ps1 register          # copies the Android ID and opens Google's registration page
+.\windows\android.ps1 setup -Vanilla    # switch back (~40 s)
+```
+
+Google blocks Play services on devices it hasn't certified, so register once: `register` copies the ID to the clipboard and opens [google.com/android/uncertified](https://www.google.com/android/uncertified). Sign in, paste it, then restart Android after a few minutes. Switching keeps your installed apps and their data. The downloaded GAPPS image is cached (~1.2 GB inside the distro), so switching back later takes about 40 seconds.
+
+| Works after registering | Doesn't work |
+|---|---|
+| Play Store, Play services, Google Sign-In | **Play Integrity** (and Firebase App Check with it): the device isn't certified |
+| Firebase: Cloud Messaging, Analytics, Crashlytics, Auth | Firebase phone auth's silent check; it falls back to a reCAPTCHA |
+| AdMob test ads, Google Maps | Apps that refuse uncertified devices (some banking apps) |
+
 ### Flutter, Android Studio and other tools
 
 Anything that talks to `adb` sees `emulator-5554`: `adb devices`, `flutter devices`, `flutter run`, `./gradlew installDebug`, and Android Studio's device picker. Only the Expo / React Native flow has been verified end to end so far. Reports for other tools are welcome.
@@ -224,7 +243,7 @@ New Microsoft kernel releases are picked up every Monday. Any change to `wsl/ker
 
 Waydroid downloads Android from SourceForge, which served the test machine at ~200 KB/s, so a fresh install took over an hour. A [second workflow](.github/workflows/mirror-android-images.yml) copies the latest official images into the [`android-images`](https://github.com/Jmzp/android-emulator-windows-arm/releases/tag/android-images) release every Wednesday, after checking that each SHA-256 matches Waydroid's own channel. It publishes matching OTA channel files on the [`ota`](https://github.com/Jmzp/android-emulator-windows-arm/tree/ota) branch.
 
-`setup-waydroid.sh` points `waydroid init` at that channel when it has your architecture (`arm64_only` or `arm64`) and image type, and falls back to Waydroid's official channel otherwise. Later `waydroid upgrade` runs use the mirror too. The images are unmodified. Only VANILLA images are mirrored by default: GAPPS images bundle Google's proprietary apps, so `-Gapps` installs still download from SourceForge. A fork can mirror them anyway with the workflow's `system_types` input (or a `MIRROR_SYSTEM_TYPES` repository variable).
+`setup-waydroid.sh` points `waydroid init` at that channel when it has your architecture (`arm64_only` or `arm64`) and image type, and falls back to Waydroid's official channel otherwise. Later `waydroid upgrade` runs use the mirror too. The images are unmodified. Only VANILLA images are mirrored: GAPPS images bundle Google's proprietary apps, which this repo doesn't redistribute. For those, [`install-images.py`](wsl/install-images.py) downloads from Waydroid's official channel with 16 parallel connections (SourceForge throttles each connection, not the total), checks the SHA-256 and caches the zip: ~2 minutes instead of over an hour in testing. A fork can mirror GAPPS anyway with the workflow's `system_types` input (or a `MIRROR_SYSTEM_TYPES` repository variable).
 
 ## Configuration
 
@@ -283,6 +302,8 @@ wsl/                         Bash, runs inside the distro
   stop-android.sh            Stop all of the above
   snapshot.sh                Save / restore / wipe Android's data
   record.py                  Screen recording (screencap frames -> ffmpeg)
+  install-images.py          Install / switch Android images (mirror or parallel download)
+  gsf-id.sh                  Android ID for Google's device registration
   authorize-adb.sh           Trust a Windows adb key inside Android
   keep-alive.sh              Keep WSL running while the Android window is open
 assets/                      Shortcut icon
@@ -353,7 +374,7 @@ To restore your previous WSL limits, copy `%USERPROFILE%\.wslconfig.bak` back ov
 
 ## Roadmap
 
-Phase 1 is complete and most of phase 2 is too: device profiles, rotation, snapshots, screenshots, recording and APK install. Next up: Google Play services (GAPPS) for Firebase and AdMob, a shared clipboard, and GPU acceleration research. See [ROADMAP.md](ROADMAP.md). Ideas and pull requests are welcome.
+Phase 1 is complete and most of phase 2 is too: device profiles, rotation, snapshots, screenshots, recording, APK install and Google Play services. Next up: a shared clipboard and GPU acceleration research. See [ROADMAP.md](ROADMAP.md). Ideas and pull requests are welcome.
 
 ## Credits
 

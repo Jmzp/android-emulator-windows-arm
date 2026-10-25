@@ -16,11 +16,13 @@
   .\windows\android.ps1 wipe                   # factory reset of Android's data
   .\windows\android.ps1 status
   .\windows\android.ps1 doctor                 # diagnose the whole setup
-  .\windows\android.ps1 setup                  # one-time Waydroid install (-Gapps for Play Store)
+  .\windows\android.ps1 setup                  # one-time Waydroid install
+  .\windows\android.ps1 setup -Gapps           # switch to Play Store / Play services (-Vanilla to go back)
+  .\windows\android.ps1 register               # Android ID for Google's device registration (GAPPS)
 #>
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('start', 'stop', 'rotate', 'status', 'doctor', 'setup', 'install', 'screenshot', 'record', 'snapshot', 'wipe')]
+    [ValidateSet('start', 'stop', 'rotate', 'status', 'doctor', 'setup', 'install', 'screenshot', 'record', 'snapshot', 'wipe', 'register')]
     [string]$Command = 'start',
     [Parameter(Position = 1, ValueFromRemainingArguments)][string[]]$Arguments = @(),
     [ValidateSet('phone', 'small', 'pixel', 'tablet')][string]$Device,
@@ -29,6 +31,7 @@ param(
     [switch]$Full,
     [switch]$NoReverse,
     [switch]$Gapps,
+    [switch]$Vanilla,
     [ValidateRange(1, 180)][int]$Seconds = 180,
     [switch]$Force,
     [switch]$Pause
@@ -182,7 +185,18 @@ function Get-OutputPath([string]$Folder, [string]$Prefix, [string]$Extension) {
 
 switch ($Command) {
     'setup' {
-        Invoke-RepoScript 'wsl/setup-waydroid.sh' @($(if ($Gapps) { 'GAPPS' } else { 'VANILLA' }), $ReleaseRepo)
+        if ($Gapps -and $Vanilla) { throw 'Choose -Gapps or -Vanilla, not both' }
+        # KEEP leaves the installed image type alone (VANILLA on a new install).
+        $type = if ($Gapps) { 'GAPPS' } elseif ($Vanilla) { 'VANILLA' } else { 'KEEP' }
+        # Switching images needs Android stopped; bring it back afterwards.
+        $wasRunning = $type -ne 'KEEP' -and (Test-AndroidRunning)
+        if ($wasRunning) { Write-Host '==> Stopping Android'; Stop-Android }
+        Invoke-RepoScript 'wsl/setup-waydroid.sh' @($type, $ReleaseRepo)
+        if ($wasRunning) { Start-Android (Get-LastStart) }
+        if ($Gapps) {
+            Write-Host '==> Google Play is installed. Google blocks uncertified devices until you register them:'
+            Write-Host '    start Android, wait a minute, then run .\windows\android.ps1 register'
+        }
     }
     'start' {
         $o = Resolve-StartOptions
@@ -283,6 +297,18 @@ switch ($Command) {
             }
             default { throw 'Usage: android.ps1 snapshot list | save NAME | restore NAME | delete NAME' }
         }
+    }
+    'register' {
+        $null = Initialize-Android
+        $script = ConvertTo-WslPath (Join-Path $RepoRoot 'wsl\gsf-id.sh')
+        $id = & wsl.exe -d $Distro --cd '~' -- bash $script
+        if ($LASTEXITCODE -eq 3) { throw 'Play services has no Android ID yet. Wait a minute after boot (or open the Play Store once), then run this again.' }
+        if ($LASTEXITCODE -ne 0) { throw 'Could not read the Android ID (see above).' }
+        Set-Clipboard $id
+        Write-Host "==> Android ID: $id (copied to the clipboard)"
+        Write-Host '    1. On the page that opens, sign in, paste the ID and click Register.'
+        Write-Host '    2. Wait a few minutes, then restart Android (close its window and reopen it).'
+        Start-Process 'https://www.google.com/android/uncertified'
     }
     'wipe' {
         Confirm-Action 'Erase all apps and data in Android (like a factory reset)?'

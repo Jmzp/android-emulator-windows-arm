@@ -93,7 +93,7 @@ Luego arráncalo:
 > [!IMPORTANT]
 > El instalador crea un usuario con `sudo` sin contraseña **dentro de la distro Ubuntu** (`/etc/sudoers.d/90-android-wsl`). Eso permite que los scripts de Windows controlen WSL sin quedarse esperando una contraseña.
 
-¿Quieres Play Store? Instala con `.\install.ps1 -Gapps` y luego [registra el dispositivo con Google](https://www.google.com/android/uncertified).
+¿Necesitas los servicios de Google Play para Firebase o AdMob? Mira [Servicios de Google Play](#servicios-de-google-play-firebase-admob-maps).
 
 ## Uso diario
 
@@ -108,6 +108,7 @@ Luego arráncalo:
 .\windows\android.ps1 record                 # MP4 en Videos\Android Emulator; Enter detiene
 .\windows\android.ps1 snapshot save limpio   # guarda apps + datos para restaurarlos luego
 .\windows\android.ps1 wipe                   # restablece apps y datos de fábrica
+.\windows\android.ps1 setup -Gapps          # Play Store + Play Services (-Vanilla para volver)
 .\windows\android.ps1 status                 # estado de Waydroid + adb devices
 .\windows\android.ps1 doctor                 # revisa toda la instalación, con soluciones
 .\windows\android.ps1 stop                   # apaga Android y libera la RAM
@@ -173,6 +174,24 @@ Los snapshots guardan los datos de usuario de Android (apps instaladas, sus dato
 
 `restore` y `wipe` piden confirmación (`-Force` la omite). Sirven para probar una y otra vez el onboarding, los diálogos de permisos o la primera instalación. Los snapshots se guardan dentro de la distro, en `~/.local/share/android-wsl/snapshots`.
 
+### Servicios de Google Play (Firebase, AdMob, Maps)
+
+La imagen por defecto es LineageOS sin Google (VANILLA). Si tu app usa Firebase Cloud Messaging, inicio de sesión con Google, Maps o AdMob, cambia a la imagen GAPPS, que agrega Play Store y Play Services:
+
+```powershell
+.\windows\android.ps1 setup -Gapps      # cambia (~2 min la primera vez); conserva apps y datos
+.\windows\android.ps1 register          # copia el Android ID y abre la página de registro de Google
+.\windows\android.ps1 setup -Vanilla    # vuelve atrás (~40 s)
+```
+
+Google bloquea Play Services en dispositivos que no certificó, así que hay que registrarlo una vez: `register` copia el ID al portapapeles y abre [google.com/android/uncertified](https://www.google.com/android/uncertified). Inicia sesión, pégalo y reinicia Android a los pocos minutos. Cambiar de imagen conserva las apps instaladas y sus datos. La imagen GAPPS descargada queda en caché (~1,2 GB dentro de la distro), así que volver a ella más adelante toma unos 40 segundos.
+
+| Funciona después de registrarlo | No funciona |
+|---|---|
+| Play Store, Play Services, inicio de sesión con Google | **Play Integrity** (y con él Firebase App Check): el dispositivo no está certificado |
+| Firebase: Cloud Messaging, Analytics, Crashlytics, Auth | La verificación silenciosa del login por teléfono de Firebase; usa un reCAPTCHA en su lugar |
+| Anuncios de prueba de AdMob, Google Maps | Apps que rechazan dispositivos no certificados (algunas bancarias) |
+
 ### Flutter, Android Studio y otras herramientas
 
 Todo lo que usa `adb` ve `emulator-5554`: `adb devices`, `flutter devices`, `flutter run`, `./gradlew installDebug` y el selector de dispositivos de Android Studio. Por ahora solo se verificó de punta a punta el flujo de Expo / React Native. Se agradecen reportes con otras herramientas.
@@ -224,7 +243,7 @@ Los nuevos releases del kernel de Microsoft se detectan cada lunes, y cualquier 
 
 Waydroid descarga Android desde SourceForge, que en el equipo de prueba bajaba a ~200 KB/s: una instalación desde cero tardó más de una hora. Un [segundo workflow](.github/workflows/mirror-android-images.yml) copia cada miércoles las imágenes oficiales más recientes al release [`android-images`](https://github.com/Jmzp/android-emulator-windows-arm/releases/tag/android-images), después de verificar que cada SHA-256 coincida con el canal oficial de Waydroid. También publica los archivos de canal OTA correspondientes en el branch [`ota`](https://github.com/Jmzp/android-emulator-windows-arm/tree/ota).
 
-`setup-waydroid.sh` apunta `waydroid init` a ese canal cuando tiene tu arquitectura (`arm64_only` o `arm64`) y tu tipo de imagen, y si no, usa el canal oficial de Waydroid. Los `waydroid upgrade` posteriores también usan el mirror. Las imágenes no se modifican. Por defecto solo se replican las imágenes VANILLA: las GAPPS incluyen apps propietarias de Google, así que las instalaciones con `-Gapps` siguen descargando desde SourceForge. Un fork puede replicarlas de todos modos con el input `system_types` del workflow (o una variable de repositorio `MIRROR_SYSTEM_TYPES`).
+`setup-waydroid.sh` apunta `waydroid init` a ese canal cuando tiene tu arquitectura (`arm64_only` o `arm64`) y tu tipo de imagen, y si no, usa el canal oficial de Waydroid. Los `waydroid upgrade` posteriores también usan el mirror. Las imágenes no se modifican. Solo se replican las imágenes VANILLA: las GAPPS incluyen apps propietarias de Google, que este repo no redistribuye. Para esas, [`install-images.py`](wsl/install-images.py) descarga desde el canal oficial de Waydroid con 16 conexiones en paralelo (SourceForge limita cada conexión, no el total), verifica el SHA-256 y guarda el zip en caché: en las pruebas tomó ~2 minutos en vez de más de una hora. Un fork puede replicar GAPPS de todos modos con el input `system_types` del workflow (o una variable de repositorio `MIRROR_SYSTEM_TYPES`).
 
 ## Configuración
 
@@ -283,6 +302,8 @@ wsl/                         Bash, corre dentro de la distro
   stop-android.sh            Detiene todo lo anterior
   snapshot.sh                Guarda / restaura / borra los datos de Android
   record.py                  Grabación de pantalla (cuadros de screencap -> ffmpeg)
+  install-images.py          Instala / cambia las imágenes de Android (mirror o descarga en paralelo)
+  gsf-id.sh                  Android ID para el registro del dispositivo con Google
   authorize-adb.sh           Autoriza una clave adb de Windows dentro de Android
   keep-alive.sh              Mantiene WSL encendido mientras la ventana de Android está abierta
 assets/                      Ícono del acceso directo
@@ -353,7 +374,7 @@ Para recuperar tus límites anteriores de WSL, copia `%USERPROFILE%\.wslconfig.b
 
 ## Roadmap
 
-La Fase 1 está completa y la mayor parte de la Fase 2 también: perfiles de dispositivo, rotación, snapshots, capturas, grabación e instalación de APKs. Lo siguiente: los servicios de Google Play (GAPPS) para Firebase y AdMob, un portapapeles compartido e investigar la aceleración por GPU. Mira [ROADMAP.md](ROADMAP.md) (en inglés). Las ideas y los pull requests son bienvenidos.
+La Fase 1 está completa y la mayor parte de la Fase 2 también: perfiles de dispositivo, rotación, snapshots, capturas, grabación, instalación de APKs y servicios de Google Play. Lo siguiente: un portapapeles compartido e investigar la aceleración por GPU. Mira [ROADMAP.md](ROADMAP.md) (en inglés). Las ideas y los pull requests son bienvenidos.
 
 ## Créditos
 
