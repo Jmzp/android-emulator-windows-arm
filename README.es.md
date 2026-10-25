@@ -55,7 +55,7 @@ Necesitas Windows 11 on ARM, WSL 2 (`wsl --version`), `adb.exe` de las platform-
 .\install.ps1
 ```
 
-Eso es todo. Primero revisa tu equipo y luego ejecuta cada paso: Ubuntu 24.04 en WSL con systemd, un tope de 4 GB / 4 núcleos para WSL, el kernel con binder precompilado, Waydroid con Android (~1 GB de descarga) y un acceso directo en el escritorio. Tarda entre 15 minutos y más de una hora: casi todo es la descarga de Android, que viene de mirrors de SourceForge cuya velocidad varía mucho. Se puede volver a ejecutar sin problema: los pasos ya hechos se saltan. Opciones: `-Gapps` (Play Store), `-Start`, `-SkipLimits`, `-NoShortcut`.
+Eso es todo. Primero revisa tu equipo y luego ejecuta cada paso: Ubuntu 24.04 en WSL con systemd, un tope de 4 GB / 4 núcleos para WSL, el kernel con binder precompilado, Waydroid con Android (~800 MB, descargados del [mirror en GitHub](#kernels-e-imágenes-de-android-precompilados) de este repo) y un acceso directo en el escritorio. Tarda unos 5 minutos con una buena conexión; una instalación desde cero en la Surface de prueba tomó 2 min 14 s. Se puede volver a ejecutar sin problema: los pasos ya hechos se saltan. Opciones: `-Gapps` (Play Store), `-Start`, `-SkipLimits`, `-NoShortcut`.
 
 <details>
 <summary>¿Prefieres ejecutar los pasos tú mismo?</summary>
@@ -202,9 +202,13 @@ Cada pieza resuelve un problema concreto:
 | El diálogo "¿Permitir depuración USB?" impide automatizar | `start` autoriza de antemano tu `adbkey.pub` de Windows dentro de Android |
 | No hay GPU para el Mesa de Waydroid en WSL | El render usa ANGLE + SwiftShader (por software). Para la UI de una app es de sobra |
 
-## Kernels precompilados
+## Kernels e imágenes de Android precompilados
 
-No necesitas compilar nada. Un [workflow de GitHub Actions](.github/workflows/build-kernel.yml) compila el kernel con binder en un runner arm64 nativo y lo publica en [Releases](https://github.com/Jmzp/android-emulator-windows-arm/releases) como `kernel-<versión>`, con el `Image`, su `Image.sha256` y la `config` completa.
+No necesitas compilar nada ni esperar descargas lentas.
+
+### Kernels
+
+ Un [workflow de GitHub Actions](.github/workflows/build-kernel.yml) compila el kernel con binder en un runner arm64 nativo y lo publica en [Releases](https://github.com/Jmzp/android-emulator-windows-arm/releases) como `kernel-<versión>`, con el `Image`, su `Image.sha256` y la `config` completa.
 
 `install-kernel.ps1` lee la versión de tu kernel de WSL (`uname -r`), descarga el release correspondiente y verifica el SHA-256 antes de usarlo. Si no hay release para tu versión, lo compila localmente.
 
@@ -215,6 +219,12 @@ No necesitas compilar nada. Un [workflow de GitHub Actions](.github/workflows/bu
 ```
 
 Los nuevos releases del kernel de Microsoft se detectan cada lunes, y cualquier cambio en `wsl/kernel/` recompila todos los kernels publicados. Para compilar otra versión a pedido: **Actions → Build WSL kernel → Run workflow**, con tags como `linux-msft-wsl-6.18.54.1`. Los forks pueden apuntar el instalador a sus propios releases con `ANDROID_WSL_RELEASE_REPO`.
+
+### Imágenes de Android
+
+Waydroid descarga Android desde SourceForge, que en el equipo de prueba bajaba a ~200 KB/s: una instalación desde cero tardó más de una hora. Un [segundo workflow](.github/workflows/mirror-android-images.yml) copia cada miércoles las imágenes oficiales más recientes al release [`android-images`](https://github.com/Jmzp/android-emulator-windows-arm/releases/tag/android-images), después de verificar que cada SHA-256 coincida con el canal oficial de Waydroid. También publica los archivos de canal OTA correspondientes en el branch [`ota`](https://github.com/Jmzp/android-emulator-windows-arm/tree/ota).
+
+`setup-waydroid.sh` apunta `waydroid init` a ese canal cuando tiene tu arquitectura (`arm64_only` o `arm64`) y tu tipo de imagen, y si no, usa el canal oficial de Waydroid. Los `waydroid upgrade` posteriores también usan el mirror. Las imágenes no se modifican. Por defecto solo se replican las imágenes VANILLA: las GAPPS incluyen apps propietarias de Google, así que las instalaciones con `-Gapps` siguen descargando desde SourceForge. Un fork puede replicarlas de todos modos con el input `system_types` del workflow (o una variable de repositorio `MIRROR_SYSTEM_TYPES`).
 
 ## Configuración
 
@@ -239,7 +249,7 @@ El tamaño de la ventana es el tamaño de pantalla que ve Android. Usa un [perfi
 |---|---|---|
 | `ANDROID_WSL_DISTRO` | `Ubuntu-24.04` | Distro de WSL que hospeda Android. Defínela antes de `install.ps1` para instalar Ubuntu 24.04 con otro nombre y mantener Android separado de un Ubuntu que ya uses |
 | `ANDROID_WSL_ADB_PORT` | `5555` | Puerto adb; un número impar de 5555 a 5585. El serial es `emulator-<puerto - 1>` |
-| `ANDROID_WSL_RELEASE_REPO` | `Jmzp/android-emulator-windows-arm` | De dónde descarga `install-kernel.ps1` los kernels precompilados |
+| `ANDROID_WSL_RELEASE_REPO` | `Jmzp/android-emulator-windows-arm` | De dónde se descargan los kernels precompilados y el mirror de imágenes de Android |
 
 Las propiedades de sistema de Android están en la sección `[properties]` de `/var/lib/waydroid/waydroid.cfg`, que inicializa [`setup-waydroid.sh`](wsl/setup-waydroid.sh). Después de editarlas, ejecuta `sudo waydroid upgrade --offline`.
 
@@ -250,6 +260,7 @@ install.ps1                  Instalador en un paso (verificaciones + todos los p
 .github/workflows/
   build-kernel.yml           Compila el kernel en runners arm64 y publica los Releases
   lint.yml                   shellcheck + PSScriptAnalyzer en cada push y pull request
+  mirror-android-images.yml  Replica las imágenes de Android de Waydroid (script en .github/scripts/)
 .github/ISSUE_TEMPLATE/      Plantillas de bug y de equipo probado
 PSScriptAnalyzerSettings.psd1  Reglas de lint para los scripts de PowerShell
 windows/                     PowerShell, se ejecuta desde Windows

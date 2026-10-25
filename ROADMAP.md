@@ -9,6 +9,7 @@ Where this project is heading, ordered by impact versus effort. Ideas and pull r
 | | Item | Result |
 |---|---|---|
 | ✅ | **Prebuilt kernels on GitHub Releases** | A GitHub Actions workflow builds the binder kernel on an arm64 runner (~13 min) and publishes it. Installing takes ~10 seconds instead of a 20–60 min local build, and OOM-during-build problems are gone. |
+| ✅ | **Android image mirror** | Waydroid's SourceForge downloads crawled at ~200 KB/s (a fresh install took 65 min). The images are now mirrored on GitHub Releases with a matching OTA channel, and a from-scratch install takes ~2 min. Validated end to end on a throwaway distro. |
 | ✅ | **Stable serial, detected as an emulator** | No relay needed: the `socat` bridges listen on IPv4, which WSL forwards to Windows' `127.0.0.1:5555`, so `adb` auto-detects `emulator-5554`. A minimal console on port 5554 answers `adb emu avd name` / `kill`. Expo, React Native and Flutter pick it up with no `ANDROID_SERIAL` or `adb connect`. |
 | ✅ | **One-step installer (`install.ps1`)** | Preflight checks (ARM64, Windows 11, WSL, `adb`, disk space), then every setup step. Re-running it takes ~12 s: finished steps are skipped and WSL isn't restarted. |
 | ✅ | **`android.ps1 doctor`** | About 30 checks across Windows, WSL, kernel, Waydroid, systemd units, the adb bridge, Android networking and a hung WSL service, each with a fix. |

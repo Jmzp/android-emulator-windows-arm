@@ -55,7 +55,7 @@ You need Windows 11 on ARM, WSL 2 (`wsl --version`), `adb.exe` from the Android 
 .\install.ps1
 ```
 
-That's it. It checks your machine first, then runs every step: Ubuntu 24.04 in WSL with systemd, a 4 GB / 4-core cap for WSL, the prebuilt binder kernel, Waydroid with Android (~1 GB download), and a desktop shortcut. Expect 15 minutes to over an hour: nearly all of it is the Android download, which comes from SourceForge mirrors whose speed varies a lot. It's safe to run again: finished steps are skipped. Options: `-Gapps` (Play Store), `-Start`, `-SkipLimits`, `-NoShortcut`.
+That's it. It checks your machine first, then runs every step: Ubuntu 24.04 in WSL with systemd, a 4 GB / 4-core cap for WSL, the prebuilt binder kernel, Waydroid with Android (~800 MB, downloaded from this repo's [GitHub mirror](#prebuilt-kernels-and-android-images)), and a desktop shortcut. It takes about 5 minutes on a good connection; a from-scratch run on the test Surface took 2 min 14 s. It's safe to run again: finished steps are skipped. Options: `-Gapps` (Play Store), `-Start`, `-SkipLimits`, `-NoShortcut`.
 
 <details>
 <summary>Prefer to run the steps yourself?</summary>
@@ -202,9 +202,13 @@ Each piece solves one specific problem:
 | The "Allow USB debugging?" prompt blocks automation | `start` pre-authorizes your Windows `adbkey.pub` inside Android |
 | No GPU passthrough for Waydroid's Mesa on WSL | Rendering uses ANGLE + SwiftShader (software). That's plenty for app UIs |
 
-## Prebuilt kernels
+## Prebuilt kernels and Android images
 
-You don't need to compile anything. A [GitHub Actions workflow](.github/workflows/build-kernel.yml) builds the binder kernel on a native arm64 runner and publishes it under [Releases](https://github.com/Jmzp/android-emulator-windows-arm/releases) as `kernel-<version>`, with the `Image`, its `Image.sha256` and the full `config`.
+You don't need to compile anything, or wait on slow downloads.
+
+### Kernels
+
+ A [GitHub Actions workflow](.github/workflows/build-kernel.yml) builds the binder kernel on a native arm64 runner and publishes it under [Releases](https://github.com/Jmzp/android-emulator-windows-arm/releases) as `kernel-<version>`, with the `Image`, its `Image.sha256` and the full `config`.
 
 `install-kernel.ps1` reads your WSL kernel version (`uname -r`), downloads the matching release and checks the SHA-256 before using it. If there's no release for your version, it falls back to a local build.
 
@@ -215,6 +219,12 @@ You don't need to compile anything. A [GitHub Actions workflow](.github/workflow
 ```
 
 New Microsoft kernel releases are picked up every Monday. Any change to `wsl/kernel/` rebuilds every published kernel. To build another version on demand: **Actions → Build WSL kernel → Run workflow**, with tags such as `linux-msft-wsl-6.18.54.1`. Forks can point the installer at their own releases with `ANDROID_WSL_RELEASE_REPO`.
+
+### Android images
+
+Waydroid downloads Android from SourceForge, which served the test machine at ~200 KB/s, so a fresh install took over an hour. A [second workflow](.github/workflows/mirror-android-images.yml) copies the latest official images into the [`android-images`](https://github.com/Jmzp/android-emulator-windows-arm/releases/tag/android-images) release every Wednesday, after checking that each SHA-256 matches Waydroid's own channel. It publishes matching OTA channel files on the [`ota`](https://github.com/Jmzp/android-emulator-windows-arm/tree/ota) branch.
+
+`setup-waydroid.sh` points `waydroid init` at that channel when it has your architecture (`arm64_only` or `arm64`) and image type, and falls back to Waydroid's official channel otherwise. Later `waydroid upgrade` runs use the mirror too. The images are unmodified. Only VANILLA images are mirrored by default: GAPPS images bundle Google's proprietary apps, so `-Gapps` installs still download from SourceForge. A fork can mirror them anyway with the workflow's `system_types` input (or a `MIRROR_SYSTEM_TYPES` repository variable).
 
 ## Configuration
 
@@ -239,7 +249,7 @@ The window size is the screen size Android sees. Use a [device profile](#device-
 |---|---|---|
 | `ANDROID_WSL_DISTRO` | `Ubuntu-24.04` | WSL distro that hosts Android. Set it before `install.ps1` to install Ubuntu 24.04 under another name and keep Android apart from an Ubuntu you already use |
 | `ANDROID_WSL_ADB_PORT` | `5555` | adb port; an odd number from 5555 to 5585. The serial is `emulator-<port - 1>` |
-| `ANDROID_WSL_RELEASE_REPO` | `Jmzp/android-emulator-windows-arm` | Where `install-kernel.ps1` downloads prebuilt kernels from |
+| `ANDROID_WSL_RELEASE_REPO` | `Jmzp/android-emulator-windows-arm` | Where prebuilt kernels and the Android image mirror are downloaded from |
 
 Android system properties live in the `[properties]` section of `/var/lib/waydroid/waydroid.cfg`, which [`setup-waydroid.sh`](wsl/setup-waydroid.sh) initializes. Run `sudo waydroid upgrade --offline` after editing them.
 
@@ -250,6 +260,7 @@ install.ps1                  One-step installer (preflight checks + every step)
 .github/workflows/
   build-kernel.yml           Builds the kernel on arm64 runners and publishes Releases
   lint.yml                   shellcheck + PSScriptAnalyzer on every push and pull request
+  mirror-android-images.yml  Mirrors Waydroid's Android images (script in .github/scripts/)
 .github/ISSUE_TEMPLATE/      Bug report and tested-device templates
 PSScriptAnalyzerSettings.psd1  Lint rules for the PowerShell scripts
 windows/                     PowerShell, run from Windows
