@@ -32,7 +32,7 @@ def main():
         subprocess.run(["sudo", "DEBIAN_FRONTEND=noninteractive", "apt-get", "install", "-y", "-qq", "ffmpeg"],
                        check=True, stdout=subprocess.DEVNULL)
 
-    cap = subprocess.Popen(CAPTURE, stdout=subprocess.PIPE)
+    cap = subprocess.Popen(CAPTURE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     # Raw screencap: width, height, pixel format, color space (uint32 each), then RGBA pixels.
     width, height, fmt, _ = struct.unpack("<4I", cap.stdout.read(16))
     if fmt != 1:

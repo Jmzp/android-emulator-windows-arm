@@ -55,7 +55,7 @@ You need Windows 11 on ARM, WSL 2 (`wsl --version`), `adb.exe` from the Android 
 .\install.ps1
 ```
 
-That's it. It checks your machine first, then runs every step: Ubuntu 24.04 in WSL with systemd, a 4 GB / 4-core cap for WSL, the prebuilt binder kernel, Waydroid with Android (~800 MB download), and a desktop shortcut. It takes 15–25 minutes, mostly the Android download. It's safe to run again: finished steps are skipped. Options: `-Gapps` (Play Store), `-Start`, `-SkipLimits`, `-NoShortcut`.
+That's it. It checks your machine first, then runs every step: Ubuntu 24.04 in WSL with systemd, a 4 GB / 4-core cap for WSL, the prebuilt binder kernel, Waydroid with Android (~1 GB download), and a desktop shortcut. Expect 15 minutes to over an hour: nearly all of it is the Android download, which comes from SourceForge mirrors whose speed varies a lot. It's safe to run again: finished steps are skipped. Options: `-Gapps` (Play Store), `-Start`, `-SkipLimits`, `-NoShortcut`.
 
 <details>
 <summary>Prefer to run the steps yourself?</summary>
@@ -237,7 +237,7 @@ The window size is the screen size Android sees. Use a [device profile](#device-
 
 | Variable (Windows) | Default | Purpose |
 |---|---|---|
-| `ANDROID_WSL_DISTRO` | `Ubuntu-24.04` | WSL distro that hosts Android |
+| `ANDROID_WSL_DISTRO` | `Ubuntu-24.04` | WSL distro that hosts Android. Set it before `install.ps1` to install Ubuntu 24.04 under another name and keep Android apart from an Ubuntu you already use |
 | `ANDROID_WSL_ADB_PORT` | `5555` | adb port; an odd number from 5555 to 5585. The serial is `emulator-<port - 1>` |
 | `ANDROID_WSL_RELEASE_REPO` | `Jmzp/android-emulator-windows-arm` | Where `install-kernel.ps1` downloads prebuilt kernels from |
 

@@ -1,6 +1,9 @@
 # Shared settings for the Windows-side scripts. Dot-source it: . "$PSScriptRoot\common.ps1"
 
-$Distro   = if ($env:ANDROID_WSL_DISTRO) { $env:ANDROID_WSL_DISTRO } else { 'Ubuntu-24.04' }
+# The Ubuntu release that gets installed, and the name it is registered under
+# (ANDROID_WSL_DISTRO lets you keep it apart from an Ubuntu you already use).
+$BaseDistro = 'Ubuntu-24.04'
+$Distro   = if ($env:ANDROID_WSL_DISTRO) { $env:ANDROID_WSL_DISTRO } else { $BaseDistro }
 $AdbPort  = if ($env:ANDROID_WSL_ADB_PORT) { [int]$env:ANDROID_WSL_ADB_PORT } else { 5555 }
 $RepoRoot = Split-Path $PSScriptRoot -Parent
 $KernelDir = Join-Path $env:USERPROFILE 'wsl-kernel'

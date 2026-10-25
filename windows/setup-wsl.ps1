@@ -11,7 +11,8 @@ $ErrorActionPreference = 'Stop'
 
 if (-not (Test-DistroInstalled)) {
     Write-Host "==> Installing $Distro"
-    & wsl.exe --install -d $Distro --no-launch
+    if ($Distro -eq $BaseDistro) { & wsl.exe --install -d $BaseDistro --no-launch }
+    else { & wsl.exe --install -d $BaseDistro --name $Distro --no-launch }
     if ($LASTEXITCODE -ne 0) { throw "wsl --install failed (exit $LASTEXITCODE)" }
     if (-not (Test-DistroInstalled)) { throw "$Distro was not registered. Launch it once from the Start menu and re-run." }
 }

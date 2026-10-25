@@ -55,7 +55,7 @@ Necesitas Windows 11 on ARM, WSL 2 (`wsl --version`), `adb.exe` de las platform-
 .\install.ps1
 ```
 
-Eso es todo. Primero revisa tu equipo y luego ejecuta cada paso: Ubuntu 24.04 en WSL con systemd, un tope de 4 GB / 4 núcleos para WSL, el kernel con binder precompilado, Waydroid con Android (~800 MB de descarga) y un acceso directo en el escritorio. Tarda 15–25 minutos, casi todo en la descarga de Android. Se puede volver a ejecutar sin problema: los pasos ya hechos se saltan. Opciones: `-Gapps` (Play Store), `-Start`, `-SkipLimits`, `-NoShortcut`.
+Eso es todo. Primero revisa tu equipo y luego ejecuta cada paso: Ubuntu 24.04 en WSL con systemd, un tope de 4 GB / 4 núcleos para WSL, el kernel con binder precompilado, Waydroid con Android (~1 GB de descarga) y un acceso directo en el escritorio. Tarda entre 15 minutos y más de una hora: casi todo es la descarga de Android, que viene de mirrors de SourceForge cuya velocidad varía mucho. Se puede volver a ejecutar sin problema: los pasos ya hechos se saltan. Opciones: `-Gapps` (Play Store), `-Start`, `-SkipLimits`, `-NoShortcut`.
 
 <details>
 <summary>¿Prefieres ejecutar los pasos tú mismo?</summary>
@@ -237,7 +237,7 @@ El tamaño de la ventana es el tamaño de pantalla que ve Android. Usa un [perfi
 
 | Variable (Windows) | Por defecto | Uso |
 |---|---|---|
-| `ANDROID_WSL_DISTRO` | `Ubuntu-24.04` | Distro de WSL que hospeda Android |
+| `ANDROID_WSL_DISTRO` | `Ubuntu-24.04` | Distro de WSL que hospeda Android. Defínela antes de `install.ps1` para instalar Ubuntu 24.04 con otro nombre y mantener Android separado de un Ubuntu que ya uses |
 | `ANDROID_WSL_ADB_PORT` | `5555` | Puerto adb; un número impar de 5555 a 5585. El serial es `emulator-<puerto - 1>` |
 | `ANDROID_WSL_RELEASE_REPO` | `Jmzp/android-emulator-windows-arm` | De dónde descarga `install-kernel.ps1` los kernels precompilados |
 
