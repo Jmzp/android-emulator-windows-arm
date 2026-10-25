@@ -28,12 +28,25 @@ function Invoke-RepoScript([string]$RelativePath, [string[]]$Arguments = @()) {
     if ($LASTEXITCODE -ne 0) { throw "$RelativePath failed (exit $LASTEXITCODE)" }
 }
 
-# WSL's localhost forwarding is unreliable with systemd distros, so adb
-# connects to the distro's own IP (it changes on every WSL restart).
-function Get-AndroidSerial {
-    $ip = ((& wsl.exe -d $Distro -- hostname -I) -split '\s+' | Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' } | Select-Object -First 1)
-    if (-not $ip) { throw "Could not get the IP of $Distro" }
-    "${ip}:$AdbPort"
+# adb only auto-detects emulators on odd ports 5555-5585 of 127.0.0.1.
+if ($AdbPort -lt 5555 -or $AdbPort -gt 5585 -or $AdbPort % 2 -eq 0) {
+    throw "ANDROID_WSL_ADB_PORT must be an odd port between 5555 and 5585 (got $AdbPort)"
+}
+
+# The adb bridge listens on IPv4 inside WSL, which WSL forwards to the Windows
+# 127.0.0.1, so adb lists the device as a regular emulator with a fixed serial.
+function Get-AndroidSerial { "emulator-$($AdbPort - 1)" }
+
+function Get-WslIp {
+    ((& wsl.exe -d $Distro -- hostname -I) -split '\s+' | Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' } | Select-Object -First 1)
+}
+
+# Metro (8081) and the Expo dev server ports.
+$DefaultReversePorts = @(8081, 19000, 19001, 19002)
+
+# Lets the app reach servers on Windows' localhost, as on a regular emulator.
+function Set-AdbReverse([string]$Adb, [string]$Serial, [int[]]$Ports = $DefaultReversePorts) {
+    foreach ($p in $Ports) { & $Adb -s $Serial reverse "tcp:$p" "tcp:$p" | Out-Null }
 }
 
 function Get-Adb {

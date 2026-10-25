@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Starts the Waydroid session, opens the Android window through WSLg and
-# exposes adbd on 0.0.0.0:$ADB_PORT so Windows can reach it.
+# exposes adbd (and a minimal emulator console) so Windows adb lists it as
+# emulator-<ADB_PORT - 1>.
 #
 #   ./start-android.sh [WIDTHxHEIGHT | full]
 #
@@ -52,7 +53,7 @@ else
   # Closing the window with its X shuts Android down (session, UI, adb bridge),
   # so the next start is clean. --no-block avoids waiting on our own stop job.
   run_unit waydroid-weston --setenv=WAYLAND_DISPLAY=wayland-0 \
-    --property=ExecStopPost="/bin/sh -c 'waydroid session stop; systemctl --user stop --no-block waydroid-ui waydroid-adb-bridge waydroid-session'" \
+    --property=ExecStopPost="/bin/sh -c 'waydroid session stop; systemctl --user stop --no-block waydroid-ui waydroid-adb-bridge waydroid-emu-console waydroid-session'" \
     weston --backend=wayland --shell=kiosk --socket="$DISPLAY_SOCKET" \
            --width="$W" --height="$H" --idle-time=0
   for _ in $(seq 1 20); do [ -S "$XDG_RUNTIME_DIR/$DISPLAY_SOCKET" ] && break; sleep 0.5; done
@@ -84,7 +85,17 @@ booted || { echo "Android did not finish booting. Check: sudo waydroid logcat -b
 IP="$(waydroid status | awk -F'\t' '/IP address/ {print $NF}' | tr -d '[:space:]')"
 case "$IP" in *.*.*.*) ;; *) IP=192.168.240.112 ;; esac
 
-systemctl --user stop waydroid-adb-bridge 2>/dev/null || true
-pkill -f "^socat TCP-LISTEN:${ADB_PORT}," 2>/dev/null || true  # stray bridge from a manual run
-run_unit waydroid-adb-bridge socat "TCP-LISTEN:${ADB_PORT},fork,reuseaddr" "TCP:${IP}:5555"
-echo "==> adb bridge: 0.0.0.0:${ADB_PORT} -> ${IP}:5555"
+# Both listeners are IPv4 on purpose: WSL forwards an IPv4 listener to the
+# Windows 127.0.0.1, where adb scans ports 5555/5554 for emulators, so the
+# device shows up as emulator-<port-1>. An IPv6 listener is only forwarded
+# to ::1, which adb never scans.
+CONSOLE_PORT=$((ADB_PORT - 1))
+systemctl --user stop waydroid-adb-bridge waydroid-emu-console 2>/dev/null || true
+pkill -f "^socat TCP4?-LISTEN:(${ADB_PORT}|${CONSOLE_PORT})," 2>/dev/null || true  # strays from a manual run
+run_unit waydroid-adb-bridge socat "TCP4-LISTEN:${ADB_PORT},fork,reuseaddr" "TCP:${IP}:5555"
+# socat's EXEC can't take a path with spaces (a repo under "C:\Users\First Last"),
+# so run a copy from a fixed Linux path.
+CONSOLE_SCRIPT="$HOME/.local/share/android-wsl/emu-console.sh"
+install -D -m 755 "$(dirname "$(readlink -f "$0")")/emu-console.sh" "$CONSOLE_SCRIPT"
+run_unit waydroid-emu-console socat "TCP4-LISTEN:${CONSOLE_PORT},fork,reuseaddr" EXEC:"bash $CONSOLE_SCRIPT"
+echo "==> adb bridge: 127.0.0.1:${ADB_PORT} -> ${IP}:5555 (emulator-${CONSOLE_PORT})"

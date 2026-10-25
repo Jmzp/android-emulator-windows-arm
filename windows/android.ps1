@@ -5,14 +5,17 @@
   .\windows\android.ps1 start                  # phone-sized window (432x936)
   .\windows\android.ps1 start -Window 480x1040 # custom window size
   .\windows\android.ps1 start -Full            # use the whole WSLg window
+  .\windows\android.ps1 start -NoReverse       # skip adb reverse for Metro / Expo
   .\windows\android.ps1 stop
   .\windows\android.ps1 status
+  .\windows\android.ps1 doctor                 # diagnose the whole setup
   .\windows\android.ps1 setup                  # one-time Waydroid install (-Gapps for Play Store)
 #>
 param(
-    [Parameter(Position = 0)][ValidateSet('start', 'stop', 'status', 'setup')][string]$Command = 'start',
+    [Parameter(Position = 0)][ValidateSet('start', 'stop', 'status', 'doctor', 'setup')][string]$Command = 'start',
     [ValidatePattern('^\d+x\d+$')][string]$Window = '432x936',
     [switch]$Full,
+    [switch]$NoReverse,
     [switch]$Gapps
 )
 $ErrorActionPreference = 'Stop'
@@ -49,13 +52,29 @@ function Stop-KeepAlive {
     Remove-Item $keepAlivePid
 }
 
+# Older versions connected by WSL IP; that entry would list the device twice.
+function Remove-LegacyConnection([string]$Adb) {
+    $ip = Get-WslIp
+    if ($ip) { & $Adb disconnect "${ip}:$AdbPort" 2>$null | Out-Null }
+}
+
+function Wait-Emulator([string]$Adb, [string]$Serial, [int]$Seconds = 60) {
+    $deadline = (Get-Date).AddSeconds($Seconds)
+    while ((Get-Date) -lt $deadline) {
+        if ((& $Adb -s $Serial get-state 2>$null) -eq 'device') { return }
+        Start-Sleep 1
+    }
+    throw "$Serial did not show up in 'adb devices'. Run .\windows\android.ps1 doctor"
+}
+
 switch ($Command) {
     'setup' {
         Invoke-RepoScript 'wsl/setup-waydroid.sh' @($(if ($Gapps) { 'GAPPS' } else { 'VANILLA' }))
     }
     'start' {
-        # The window is the Weston unit, or the Waydroid UI itself with -Full.
-        Start-KeepAlive $(if ($Full) { 'waydroid-ui' } else { 'waydroid-weston' })
+        # Track the phone window (Weston). With -Full there is no Weston, and
+        # `show-full-ui` exits right away, so track the session instead.
+        Start-KeepAlive $(if ($Full) { 'waydroid-session' } else { 'waydroid-weston' })
         Invoke-RepoScript 'wsl/start-android.sh' @($(if ($Full) { 'full' } else { $Window }))
 
         $adb = Get-Adb
@@ -64,21 +83,25 @@ switch ($Command) {
         Invoke-RepoScript 'wsl/authorize-adb.sh' @(ConvertTo-WslPath $keyPub)
 
         $serial = Get-AndroidSerial
-        & $adb disconnect $serial 2>$null | Out-Null
-        & $adb connect $serial | Write-Host
-        & $adb -s $serial wait-for-device
-        Write-Host "==> Ready: $serial  $(& $adb -s $serial shell getprop ro.product.model) ($(& $adb -s $serial shell getprop ro.product.cpu.abi))"
-        Write-Host "    Use it with: `$env:ANDROID_SERIAL = '$serial'"
-        Write-Host '    React Native / Expo: .\windows\rn-connect.ps1, then npx expo run:android'
+        Remove-LegacyConnection $adb
+        Wait-Emulator $adb $serial
+        if (-not $NoReverse) { Set-AdbReverse $adb $serial }
+
+        $model = & $adb -s $serial shell getprop ro.product.model
+        $abi = & $adb -s $serial shell getprop ro.product.cpu.abi
+        Write-Host "==> Ready: $serial  $model ($abi)"
+        if (-not $NoReverse) { Write-Host "    adb reverse: $($DefaultReversePorts -join ', ') (Metro / Expo)" }
+        Write-Host '    Try: npx expo start --android   |   npx react-native run-android   |   flutter run'
     }
     'stop' {
-        $adb = Get-Adb
-        & $adb disconnect (Get-AndroidSerial) 2>$null | Out-Null
         Invoke-RepoScript 'wsl/stop-android.sh'
         Stop-KeepAlive
     }
     'status' {
         & wsl.exe -d $Distro -- waydroid status
         & (Get-Adb) devices -l
+    }
+    'doctor' {
+        & (Join-Path $PSScriptRoot 'doctor.ps1')
     }
 }

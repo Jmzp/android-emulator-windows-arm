@@ -16,7 +16,7 @@ if ! grep -q binder /proc/filesystems; then
   exit 1
 fi
 
-if [ "$(ps -p 1 -o comm=)" != "systemd" ]; then
+if [ "$(cat /proc/1/comm)" != "systemd" ]; then
   echo "systemd is not PID 1. Add '[boot] systemd=true' to /etc/wsl.conf and run 'wsl --shutdown'." >&2
   exit 1
 fi

@@ -15,8 +15,10 @@
   Reuse the Image already in %USERPROFILE%\wsl-kernel.
 .PARAMETER Revert
   Remove the kernel= line and go back to Microsoft's stock kernel.
+.PARAMETER Force
+  Reinstall even if the prebuilt kernel is already installed and loaded.
 #>
-param([switch]$Build, [string]$Version, [switch]$SkipBuild, [switch]$Revert)
+param([switch]$Build, [string]$Version, [switch]$SkipBuild, [switch]$Revert, [switch]$Force)
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\common.ps1"
 
@@ -37,22 +39,29 @@ function Set-WslConfigKernel([string]$Value) {
     Set-Content -Path $WslConfig -Value $lines -Encoding ascii
 }
 
-# Returns the path of a verified download, or $null if no release exists.
-function Get-PrebuiltKernel([string]$KernelVersion) {
-    $base = "https://github.com/$ReleaseRepo/releases/download/kernel-$KernelVersion"
-    $tmp = Join-Path ([IO.Path]::GetTempPath()) "wsl-kernel-$KernelVersion"
-    New-Item -ItemType Directory -Force $tmp | Out-Null
+# Returns the published SHA-256 of a prebuilt kernel, or $null if no release exists.
+function Get-PrebuiltHash([string]$KernelVersion) {
+    $url = "https://github.com/$ReleaseRepo/releases/download/kernel-$KernelVersion/Image.sha256"
     try {
-        Invoke-WebRequest "$base/Image.sha256" -OutFile "$tmp\Image.sha256" -UseBasicParsing
+        $text = (Invoke-WebRequest $url -UseBasicParsing).Content
+        if ($text -is [byte[]]) { $text = [Text.Encoding]::ASCII.GetString($text) }
+        return ($text.Trim() -split '\s+')[0].ToLower()
     } catch {
         if ($_.Exception.Response.StatusCode.value__ -eq 404) { return $null }
         throw
     }
+}
+
+# Downloads a prebuilt kernel and returns its path after checking the hash.
+function Get-PrebuiltKernel([string]$KernelVersion, [string]$Expected) {
+    $base = "https://github.com/$ReleaseRepo/releases/download/kernel-$KernelVersion"
+    $tmp = Join-Path ([IO.Path]::GetTempPath()) "wsl-kernel-$KernelVersion"
+    New-Item -ItemType Directory -Force $tmp | Out-Null
     Write-Host "==> Downloading prebuilt kernel $KernelVersion from $ReleaseRepo"
     $ProgressPreference = 'SilentlyContinue'  # the progress bar makes downloads much slower
     Invoke-WebRequest "$base/Image" -OutFile "$tmp\Image" -UseBasicParsing
 
-    $expected = ((Get-Content "$tmp\Image.sha256" -Raw).Trim() -split '\s+')[0].ToLower()
+    $expected = $Expected
     $actual = (Get-FileHash "$tmp\Image" -Algorithm SHA256).Hash.ToLower()
     if ($expected -ne $actual) { throw "Checksum mismatch for kernel $KernelVersion (expected $expected, got $actual)" }
     Write-Host "    SHA-256 verified: $actual"
@@ -70,12 +79,19 @@ $image = Join-Path $KernelDir 'Image'
 New-Item -ItemType Directory -Force $KernelDir | Out-Null
 
 if (-not $SkipBuild -and -not $Build) {
+    $running = (& wsl.exe -d $Distro -- uname -r | Out-String).Trim()
     if (-not $Version) {
-        $running = (& wsl.exe -d $Distro -- uname -r | Out-String).Trim()
         $Version = [regex]::Match($running, '^\d+(\.\d+)+').Value
         if (-not $Version) { throw "Could not read the WSL kernel version (uname -r: '$running')" }
     }
-    $download = Get-PrebuiltKernel $Version
+    $hash = Get-PrebuiltHash $Version
+    $installedHash = if (Test-Path $image) { (Get-FileHash $image -Algorithm SHA256).Hash.ToLower() }
+    $configured = (Test-Path $WslConfig) -and ((Get-Content $WslConfig) -match '^\s*kernel\s*=')
+    if ($hash -and -not $Force -and $hash -eq $installedHash -and $configured -and $running -match '-waydroid') {
+        Write-Host "==> Kernel $Version is already installed and loaded ($running). Use -Force to reinstall."
+        return
+    }
+    $download = if ($hash) { Get-PrebuiltKernel $Version $hash }
     if ($download) {
         # Stop WSL first so the kernel file in use can be replaced.
         & wsl.exe --shutdown

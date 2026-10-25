@@ -32,6 +32,7 @@ $settings = [ordered]@{
 }
 
 $lines = if (Test-Path $WslConfig) { @(Get-Content $WslConfig) } else { @('[wsl2]') }
+$original = $lines -join "`n"
 if (-not (Test-Path "$WslConfig.bak") -and (Test-Path $WslConfig)) { Copy-Item $WslConfig "$WslConfig.bak" }
 if (-not ($lines -match '^\s*\[wsl2\]\s*$')) { $lines = @('[wsl2]') + $lines }
 
@@ -53,8 +54,12 @@ if (-not ($lines -match '^\s*autoMemoryReclaim\s*=')) {
     $lines = @($lines[0..$at]) + 'autoMemoryReclaim=dropCache' + @(if ($at + 1 -lt $lines.Count) { $lines[($at + 1)..($lines.Count - 1)] })
 }
 
-Set-Content -Path $WslConfig -Value $lines -Encoding ascii
 Write-Host "==> WSL limits: $MemoryGB GB RAM, $Processors of $cores cores, $SwapGB GB swap (host has $totalGB GB)"
+if (($lines -join "`n") -eq $original) {
+    Write-Host '    Already configured, nothing to change.'
+    return
+}
+Set-Content -Path $WslConfig -Value $lines -Encoding ascii
 
 if (-not $NoRestart) {
     Write-Host '==> Restarting WSL to apply (Docker Desktop will restart its engine too)'

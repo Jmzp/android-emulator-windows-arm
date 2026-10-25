@@ -4,15 +4,15 @@ Where this project is heading, ordered by impact versus effort. Ideas and pull r
 
 **Legend:** ✅ done · 🚧 in progress · ⬜ planned · 🔬 research
 
-## Phase 1: polish what exists
+## Phase 1: polish what exists ✅
 
-| | Item | Why it matters |
+| | Item | Result |
 |---|---|---|
-| ✅ | **Prebuilt kernels on GitHub Releases** | A GitHub Actions workflow builds the binder kernel on an arm64 runner (~13 min) and publishes it. Installing now takes ~10 seconds instead of a 20–60 min local build, and OOM-during-build problems disappear. |
-| ⬜ | **Stable serial, detected as an emulator** | Add a tiny Windows-side relay on `127.0.0.1:5555` so `adb` lists the device as `emulator-5554`. It would no longer change when WSL restarts, and Android Studio, Expo and Flutter would treat it like any emulator, with no `ANDROID_SERIAL` or `adb connect`. |
-| ⬜ | **One-step installer (`install.ps1`)** | Chain the setup steps with preflight checks (ARM64, WSL version, `adb`, disk space), safe to re-run. |
-| ⬜ | **`android.ps1 doctor`** | Automated diagnosis: binder kernel, systemd, units, adb bridge, Android networking, stuck WSL service. Turns the troubleshooting table into a command. |
-| ⬜ | **Automatic `adb reverse` on start** | Fold `rn-connect.ps1` into `start` (opt-out flag), so Metro works without an extra step. |
+| ✅ | **Prebuilt kernels on GitHub Releases** | A GitHub Actions workflow builds the binder kernel on an arm64 runner (~13 min) and publishes it. Installing takes ~10 seconds instead of a 20–60 min local build, and OOM-during-build problems are gone. |
+| ✅ | **Stable serial, detected as an emulator** | No relay needed: the `socat` bridges listen on IPv4, which WSL forwards to Windows' `127.0.0.1:5555`, so `adb` auto-detects `emulator-5554`. A minimal console on port 5554 answers `adb emu avd name` / `kill`. Expo, React Native and Flutter pick it up with no `ANDROID_SERIAL` or `adb connect`. |
+| ✅ | **One-step installer (`install.ps1`)** | Preflight checks (ARM64, Windows 11, WSL, `adb`, disk space), then every setup step. Re-running it takes ~12 s: finished steps are skipped and WSL isn't restarted. |
+| ✅ | **`android.ps1 doctor`** | About 30 checks across Windows, WSL, kernel, Waydroid, systemd units, the adb bridge, Android networking and a hung WSL service, each with a fix. |
+| ✅ | **Automatic `adb reverse` on start** | `start` reverses Metro (8081) and Expo (19000–19002); `-NoReverse` opts out, `rn-connect.ps1 -Ports` adds more. |
 
 ## Phase 2: developer experience
 

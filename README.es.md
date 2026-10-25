@@ -28,7 +28,8 @@ Este proyecto cubre ese hueco. Android corre en un contenedor [Waydroid](https:/
 ## Lo más importante
 
 - **arm64 nativo.** Sin traducción de instrucciones: los núcleos Snapdragon ejecutan el código de Android directamente.
-- **Un comando o un doble clic.** Arranca Android, abre una ventana con tamaño de teléfono y conecta `adb`. El diálogo de "¿Permitir depuración USB?" nunca aparece.
+- **Aparece como un emulador real.** `adb` lo lista como `emulator-5554`, así que Expo, React Native, Flutter y Android Studio lo detectan sin seriales ni `adb connect`. `adb emu avd name` y `adb emu kill` también funcionan.
+- **Un comando o un doble clic.** Arranca Android, abre una ventana con tamaño de teléfono, conecta `adb` y configura `adb reverse` para Metro. El diálogo de "¿Permitir depuración USB?" nunca aparece.
 - **Hecho para desarrollar.** Funciona de entrada con `adb`, Metro, Expo Go, Fast Refresh y `adb reverse`.
 - **Recursos con tope.** RAM y CPU limitados (4 GB / 4 núcleos por defecto), para que tu IDE y tu navegador sigan fluidos.
 - **Reversible.** Con una opción vuelves al kernel oficial de WSL. En Windows no se instala nada, salvo la configuración de WSL y un acceso directo opcional.
@@ -47,15 +48,26 @@ Otros equipos Snapdragon X (X Elite, X Plus, X2) deberían comportarse igual. Si
 
 ## Inicio rápido
 
-Necesitas Windows 11 on ARM, WSL 2 (`wsl --version`), `adb.exe` de las platform-tools del Android SDK y unos 10 GB libres en disco. Ejecuta todo desde PowerShell, en la raíz del repo:
+Necesitas Windows 11 on ARM, WSL 2 (`wsl --version`), `adb.exe` de las platform-tools del Android SDK (`winget install Google.PlatformTools`) y unos 10 GB libres en disco. Desde PowerShell, en la raíz del repo:
 
 ```powershell
-.\windows\setup-wsl.ps1        # 1. Ubuntu 24.04 arm64 en WSL, con systemd          (~3 min)
-.\windows\configure-wsl.ps1    # 2. Limita WSL a 4 GB de RAM / 4 núcleos             (instantáneo)
-.\windows\install-kernel.ps1   # 3. Descarga y activa el kernel con binder precompilado (~1 min)
-.\windows\android.ps1 setup    # 4. Instala Waydroid y descarga Android (~800 MB)    (10-20 min)
-.\windows\create-shortcut.ps1  # 5. Opcional: ícono "Android Emulator" en el escritorio
+.\install.ps1
 ```
+
+Eso es todo. Primero revisa tu equipo y luego ejecuta cada paso: Ubuntu 24.04 en WSL con systemd, un tope de 4 GB / 4 núcleos para WSL, el kernel con binder precompilado, Waydroid con Android (~800 MB de descarga) y un acceso directo en el escritorio. Tarda 15–25 minutos, casi todo en la descarga de Android. Se puede volver a ejecutar sin problema: los pasos ya hechos se saltan. Opciones: `-Gapps` (Play Store), `-Start`, `-SkipLimits`, `-NoShortcut`.
+
+<details>
+<summary>¿Prefieres ejecutar los pasos tú mismo?</summary>
+
+```powershell
+.\windows\setup-wsl.ps1        # 1. Ubuntu 24.04 arm64 en WSL, con systemd
+.\windows\configure-wsl.ps1    # 2. Limita WSL a 4 GB de RAM / 4 núcleos
+.\windows\install-kernel.ps1   # 3. Descarga y activa el kernel con binder precompilado
+.\windows\android.ps1 setup    # 4. Instala Waydroid y descarga Android
+.\windows\create-shortcut.ps1  # 5. Ícono "Android Emulator" en el escritorio
+```
+
+</details>
 
 Luego arráncalo:
 
@@ -68,20 +80,19 @@ Luego arráncalo:
 ==> Starting Waydroid session
 ==> Showing Android
 ==> Waiting for Android to boot
-==> adb bridge: 0.0.0.0:5555 -> 192.168.240.112:5555
-adb key authorized.
-connected to 172.22.97.155:5555
-==> Ready: 172.22.97.155:5555  WayDroid arm64 only Device (arm64-v8a)
-    Use it with: $env:ANDROID_SERIAL = '172.22.97.155:5555'
+==> adb bridge: 127.0.0.1:5555 -> 192.168.240.112:5555 (emulator-5554)
+==> Ready: emulator-5554  WayDroid arm64 only Device (arm64-v8a)
+    adb reverse: 8081, 19000, 19001, 19002 (Metro / Expo)
+    Try: npx expo start --android   |   npx react-native run-android   |   flutter run
 ```
 
 > [!NOTE]
-> Los pasos 2 y 3 modifican `%USERPROFILE%\.wslconfig` (la primera vez guardan una copia en `.wslconfig.bak`) y reinician WSL. **Todas** las distros de WSL usan el kernel propio, incluida Docker Desktop. Es el mismo kernel de Microsoft más binder, así que Docker sigue funcionando.
+> El instalador modifica `%USERPROFILE%\.wslconfig` (la primera vez guardan una copia en `.wslconfig.bak`) y reinician WSL. **Todas** las distros de WSL usan el kernel propio, incluida Docker Desktop. Es el mismo kernel de Microsoft más binder, así que Docker sigue funcionando.
 
 > [!IMPORTANT]
-> `setup-wsl.ps1` crea un usuario con `sudo` sin contraseña **dentro de la distro Ubuntu** (`/etc/sudoers.d/90-android-wsl`). Eso permite que los scripts de Windows controlen WSL sin quedarse esperando una contraseña.
+> El instalador crea un usuario con `sudo` sin contraseña **dentro de la distro Ubuntu** (`/etc/sudoers.d/90-android-wsl`). Eso permite que los scripts de Windows controlen WSL sin quedarse esperando una contraseña.
 
-¿Quieres Play Store? Usa `.\windows\android.ps1 setup -Gapps` y luego [registra el dispositivo con Google](https://www.google.com/android/uncertified).
+¿Quieres Play Store? Instala con `.\install.ps1 -Gapps` y luego [registra el dispositivo con Google](https://www.google.com/android/uncertified).
 
 ## Uso diario
 
@@ -89,36 +100,36 @@ connected to 172.22.97.155:5555
 .\windows\android.ps1 start                  # ventana tamaño teléfono (432x936)
 .\windows\android.ps1 start -Window 480x1040 # el tamaño que quieras
 .\windows\android.ps1 start -Full            # usa toda la ventana de WSLg
+.\windows\android.ps1 start -NoReverse       # sin adb reverse para Metro / Expo
 .\windows\android.ps1 status                 # estado de Waydroid + adb devices
+.\windows\android.ps1 doctor                 # revisa toda la instalación, con soluciones
 .\windows\android.ps1 stop                   # apaga Android y libera la RAM
 ```
 
 O usa el ícono del escritorio, como cualquier app:
 
-- **Abrir:** doble clic en **Android Emulator**. Una consola arranca Android, conecta `adb` y muestra el serial. Puedes cerrar esa consola cuando quieras.
-- **Cerrar:** haz clic en la **X** de la ventana de Android. Android se apaga, el puente adb se detiene y WSL libera la memoria. Es lo mismo que `android.ps1 stop`.
+- **Abrir:** doble clic en **Android Emulator**. Una consola arranca Android y espera a que `emulator-5554` esté listo. Puedes cerrar esa consola cuando quieras.
+- **Cerrar:** haz clic en la **X** de la ventana de Android. Android se apaga, el puente adb se detiene y WSL libera la memoria. Es lo mismo que `android.ps1 stop` o `adb emu kill`.
 - **Volver a abrir:** doble clic en el ícono otra vez. Android siempre arranca limpio.
 
 > [!TIP]
-> El serial es `<IP de WSL>:5555`, y esa IP puede cambiar cuando WSL se reinicia. `start` siempre imprime la actual.
+> ¿Algo no anda? Ejecuta `.\windows\android.ps1 doctor`. Revisa Windows, WSL, el kernel, Waydroid, los servicios y `adb`, y muestra la solución de lo que falle.
 
 ### React Native / Expo
 
 ```powershell
-.\windows\android.ps1 start
-.\windows\rn-connect.ps1                      # adb reverse para Metro (8081) y Expo (19000-19002)
-$env:ANDROID_SERIAL = '<serial que imprime start>'
+.\windows\android.ps1 start                   # también configura adb reverse para Metro y Expo
 
 npx expo start --android                      # Expo Go (se instala solo la primera vez)
 npx expo run:android                          # o un development build
 npx react-native run-android                  # o React Native sin Expo
 ```
 
-Fast Refresh funciona como en cualquier dispositivo: guardas un archivo y la pantalla se actualiza sin perder el estado. Las reglas de `adb reverse` se borran cuando Android se reinicia, así que ejecuta `rn-connect.ps1` de nuevo después de cada `start`.
+Sin `ANDROID_SERIAL` ni `adb connect`: Expo ve un emulador llamado **Waydroid** (`› Opening exp://… on Waydroid`). Fast Refresh funciona como en cualquier dispositivo: guardas un archivo y la pantalla se actualiza sin perder el estado. Si necesitas reenviar más puertos, usa `.\windows\rn-connect.ps1 -Ports 8081, 3000`.
 
 ### Flutter, Android Studio y otras herramientas
 
-Todo lo que usa `adb` ve el dispositivo: `adb devices`, `flutter devices`, `flutter run -d <serial>`, `./gradlew installDebug` y el selector de dispositivos de Android Studio. Por ahora solo se verificó de punta a punta el flujo de Expo / React Native. Se agradecen reportes con otras herramientas.
+Todo lo que usa `adb` ve `emulator-5554`: `adb devices`, `flutter devices`, `flutter run`, `./gradlew installDebug` y el selector de dispositivos de Android Studio. Por ahora solo se verificó de punta a punta el flujo de Expo / React Native. Se agradecen reportes con otras herramientas.
 
 ## Cómo funciona
 
@@ -127,7 +138,8 @@ Windows 11 ARM64
  └─ VM de WSL2 ─ Ubuntu 24.04 arm64, kernel propio con binder
      ├─ Weston (anidado, kiosk shell) ── una ventana tamaño teléfono en tu escritorio vía WSLg
      │   └─ Waydroid ─ contenedor LXC con LineageOS 20 (Android 13, arm64)
-     └─ socat :5555 ──► adbd de Android  ◄── adb.exe en Windows (vía la IP de WSL)
+     └─ socat 127.0.0.1:5555 ──► adbd de Android  ◄── adb.exe en Windows (emulator-5554)
+         socat 127.0.0.1:5554 ──► emu-console.sh (adb emu avd name / kill)
 ```
 
 Cada pieza resuelve un problema concreto:
@@ -138,8 +150,9 @@ Cada pieza resuelve un problema concreto:
 | WSLg siempre maximiza la ventana de Waydroid | Android se dibuja dentro de un **Weston** anidado en modo kiosk, con tamaño de teléfono |
 | Con systemd, WSL apaga la distro cuando no hay ningún `wsl.exe` conectado | Un `wsl.exe` oculto que ejecuta [`keep-alive.sh`](wsl/keep-alive.sh) la mantiene viva mientras la ventana de Android está abierta, y luego termina solo. Se lanza vía WMI, así que cerrar la consola no lo mata |
 | Android no puede volver a dibujar en una ventana nueva si su compositor desapareció | Cerrar la ventana detiene toda la sesión de Android (un `ExecStopPost` de systemd), así que cada arranque es limpio |
-| Los procesos en segundo plano mueren con el `wsl.exe` que los lanzó | Weston, la sesión, la UI y el puente adb corren como **unidades de usuario de systemd**, con *linger* activado |
-| El reenvío de `localhost` de WSL no es confiable con systemd | `adb` se conecta a la IP de la distro, a través de un puente `socat` |
+| Los procesos en segundo plano mueren con el `wsl.exe` que los lanzó | Weston, la sesión, la UI, el puente adb y la consola corren como **unidades de usuario de systemd**, con *linger* activado |
+| WSL solo reenvía las conexiones IPv6 a `::1`, pero adb busca emuladores en `127.0.0.1` | Los puentes `socat` escuchan en **IPv4**, que WSL reenvía a `127.0.0.1:5555` de Windows, así adb detecta `emulator-5554` solo |
+| Las herramientas le piden su nombre a la consola del emulador (`adb emu avd name`) | [`emu-console.sh`](wsl/emu-console.sh) responde en el puerto 5554 como la consola real: `avd name`, `avd status`, `kill` |
 | El diálogo "¿Permitir depuración USB?" impide automatizar | `start` autoriza de antemano tu `adbkey.pub` de Windows dentro de Android |
 | No hay GPU para el Mesa de Waydroid en WSL | El render usa ANGLE + SwiftShader (por software). Para la UI de una app es de sobra |
 
@@ -185,7 +198,7 @@ adb shell wm size reset; adb shell wm density reset
 | Variable (Windows) | Por defecto | Uso |
 |---|---|---|
 | `ANDROID_WSL_DISTRO` | `Ubuntu-24.04` | Distro de WSL que hospeda Android |
-| `ANDROID_WSL_ADB_PORT` | `5555` | Puerto del puente adb dentro de WSL |
+| `ANDROID_WSL_ADB_PORT` | `5555` | Puerto adb; un número impar de 5555 a 5585. El serial es `emulator-<puerto - 1>` |
 | `ANDROID_WSL_RELEASE_REPO` | `Jmzp/android-emulator-windows-arm` | De dónde descarga `install-kernel.ps1` los kernels precompilados |
 
 Las propiedades de sistema de Android están en la sección `[properties]` de `/var/lib/waydroid/waydroid.cfg`, que inicializa [`setup-waydroid.sh`](wsl/setup-waydroid.sh). Después de editarlas, ejecuta `sudo waydroid upgrade --offline`.
@@ -193,21 +206,25 @@ Las propiedades de sistema de Android están en la sección `[properties]` de `/
 ## Estructura del proyecto
 
 ```
+install.ps1                  Instalador en un paso (verificaciones + todos los pasos)
 .github/workflows/
   build-kernel.yml           Compila el kernel en runners arm64 y publica los Releases
 windows/                     PowerShell, se ejecuta desde Windows
   setup-wsl.ps1              Instala y prepara la distro Ubuntu
   configure-wsl.ps1          Límites de RAM / CPU / swap para WSL
   install-kernel.ps1         Descarga (o compila con -Build) y activa el kernel con binder (-Revert para deshacer)
-  android.ps1                setup | start | stop | status
-  rn-connect.ps1             adb reverse para Metro / Expo
+  android.ps1                setup | start | stop | status | doctor
+  doctor.ps1                 Diagnóstico detrás de `android.ps1 doctor`
+  rn-connect.ps1             Puertos extra de adb reverse (start ya hace Metro / Expo)
   create-shortcut.ps1        Acceso directo con ícono en el escritorio
   common.ps1                 Funciones compartidas
 wsl/                         Bash, corre dentro de la distro
   kernel/build-kernel.sh     Clona, configura y compila el kernel de WSL
   kernel/waydroid.config     Fragmento de Kconfig (binder, netfilter)
   setup-waydroid.sh          Instala Waydroid, descarga Android y fija propiedades
-  start-android.sh           Weston + sesión + UI + puente adb (unidades de systemd)
+  start-android.sh           Weston + sesión + UI + puente adb + consola (unidades de systemd)
+  emu-console.sh             Consola mínima de emulador para `adb emu`
+  doctor.sh                  Verificaciones de Linux para `doctor`
   stop-android.sh            Detiene todo lo anterior
   authorize-adb.sh           Autoriza una clave adb de Windows dentro de Android
   keep-alive.sh              Mantiene WSL encendido mientras la ventana de Android está abierta
@@ -218,7 +235,7 @@ ROADMAP.md                   Lo que viene
 
 ## Solución de problemas
 
-Todo lo relacionado con Android corre como unidades de usuario de systemd dentro de la distro (`waydroid-weston`, `waydroid-session`, `waydroid-ui`, `waydroid-adb-bridge`). Empieza por los logs:
+Empieza con `.\windows\android.ps1 doctor`: hace unas 30 verificaciones y muestra la solución de cada fallo. Para ir más a fondo, todo lo relacionado con Android corre como unidades de usuario de systemd dentro de la distro (`waydroid-weston`, `waydroid-session`, `waydroid-adb-bridge`, `waydroid-emu-console`):
 
 ```bash
 wsl -d Ubuntu-24.04
@@ -251,17 +268,17 @@ sudo tail /var/lib/waydroid/waydroid.log
 
 | Síntoma | Solución |
 |---|---|
-| `adb connect` rechazado | `waydroid status` debe mostrar `RUNNING` con una IP, y `systemctl --user status waydroid-adb-bridge` debe estar activo. |
+| `emulator-5554` no aparece | Ejecuta `doctor`. `127.0.0.1:5555` debe estar reenviado desde WSL (no pongas `localhostForwarding=false` en `.wslconfig`) y la unidad `waydroid-adb-bridge` debe estar activa. |
+| El dispositivo aparece dos veces (`emulator-5554` y `<ip>:5555`) | Es una conexión vieja por IP. `start` la elimina; o ejecuta `adb disconnect <ip>:5555`. |
 | `failed to authenticate` | Regeneraste `%USERPROFILE%\.android\adbkey`. Ejecuta `android.ps1 start` de nuevo para autorizar la nueva clave. |
-| El dispositivo aparece `offline` | Android se detuvo o WSL se reinició. Ejecuta `android.ps1 start`; puede que el serial haya cambiado. |
+| El dispositivo aparece `offline` | Android se detuvo o WSL se reinició. Ejecuta `android.ps1 start`. |
 
 ## Limitaciones
 
-- **No es un AVD.** El Device Manager de Android Studio no lo administra. Aparece como dispositivo conectado por red.
+- **No es un AVD.** Aparece como `emulator-5554`, pero el Device Manager de Android Studio no puede crearlo, borrarlo ni configurarlo como un AVD.
 - **Render por software.** Sirve para la UI de apps y para desarrollar, pero no para juegos o 3D pesado.
 - **Una sola versión de Android.** LineageOS 20 (Android 13, API 33). No se puede cambiar de nivel de API como con las imágenes de AVD.
 - **Solo apps arm64.** Los Snapdragon X no ejecutan código ARM de 32 bits, así que Waydroid usa la imagen `arm64_only`. Las apps solo x86 o solo `armeabi-v7a` no se instalan. Los builds de React Native y Expo incluyen `arm64-v8a` por defecto.
-- **El serial puede cambiar** tras reiniciar WSL, porque se basa en la IP de WSL.
 
 ## Desinstalar
 
@@ -277,7 +294,7 @@ Para recuperar tus límites anteriores de WSL, copia `%USERPROFILE%\.wslconfig.b
 
 ## Roadmap
 
-Serial fijo `emulator-5554`, instalador en un paso, comando `doctor`, investigación de aceleración por GPU y más: mira [ROADMAP.md](ROADMAP.md) (en inglés). Las ideas y los pull requests son bienvenidos.
+La Fase 1 está completa (kernels precompilados, `emulator-5554`, `install.ps1`, `doctor`, `adb reverse` automático). Lo siguiente: perfiles de dispositivo, portapapeles compartido, snapshots e investigación de aceleración por GPU. Mira [ROADMAP.md](ROADMAP.md) (en inglés). Las ideas y los pull requests son bienvenidos.
 
 ## Créditos
 
