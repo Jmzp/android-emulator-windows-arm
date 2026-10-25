@@ -182,7 +182,7 @@ function Get-OutputPath([string]$Folder, [string]$Prefix, [string]$Extension) {
 
 switch ($Command) {
     'setup' {
-        Invoke-RepoScript 'wsl/setup-waydroid.sh' @($(if ($Gapps) { 'GAPPS' } else { 'VANILLA' }))
+        Invoke-RepoScript 'wsl/setup-waydroid.sh' @($(if ($Gapps) { 'GAPPS' } else { 'VANILLA' }), $ReleaseRepo)
     }
     'start' {
         $o = Resolve-StartOptions

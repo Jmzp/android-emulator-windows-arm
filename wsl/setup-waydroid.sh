@@ -2,13 +2,16 @@
 # Installs and initializes Waydroid inside the Ubuntu WSL distro.
 # Run as your normal (non-root) user once the binder kernel is active.
 #
-#   ./setup-waydroid.sh [VANILLA|GAPPS]
+#   ./setup-waydroid.sh [VANILLA|GAPPS] [OWNER/REPO]
 #
 # VANILLA (default): plain LineageOS, install Expo Go / your APKs with adb.
 # GAPPS: includes Play Store (needs device registration with Google).
+# OWNER/REPO: GitHub repo whose `ota` branch mirrors the images (see
+# .github/workflows/mirror-android-images.yml); "official" skips the mirror.
 set -euo pipefail
 
 SYSTEM_TYPE="${1:-VANILLA}"
+MIRROR_REPO="${2:-Jmzp/android-emulator-windows-arm}"
 
 if ! grep -q binder /proc/filesystems; then
   echo "binder is not available in this kernel ($(uname -r))." >&2
@@ -32,8 +35,23 @@ if ! command -v waydroid >/dev/null; then
 fi
 
 if [ ! -f /var/lib/waydroid/waydroid.cfg ]; then
-  echo "==> Downloading Android images ($SYSTEM_TYPE, arm64) — ~1 GB"
-  sudo waydroid init -s "$SYSTEM_TYPE"
+  # Waydroid's own images come from SourceForge, which can be very slow. The
+  # mirror serves the same files (same SHA-256) from GitHub Releases. Use it
+  # when it has this architecture and image type, else the official channel.
+  SYSTEM_CHANNEL=https://ota.waydro.id/system
+  VENDOR_CHANNEL=https://ota.waydro.id/vendor
+  ARCH="$(python3 -c 'import sys; sys.path.insert(0, "/usr/lib/waydroid"); from tools.helpers import arch; print(arch.host())' 2>/dev/null || true)"
+  MIRROR="https://raw.githubusercontent.com/$MIRROR_REPO/ota"
+  if [ "$MIRROR_REPO" != official ] && [ -n "$ARCH" ] &&
+     curl -fsI "$MIRROR/system/lineage/waydroid_$ARCH/$SYSTEM_TYPE.json" >/dev/null &&
+     curl -fsI "$MIRROR/vendor/waydroid_$ARCH/MAINLINE.json" >/dev/null; then
+    SYSTEM_CHANNEL="$MIRROR/system"
+    VENDOR_CHANNEL="$MIRROR/vendor"
+    echo "==> Downloading Android images ($SYSTEM_TYPE, $ARCH) from the GitHub mirror — ~1 GB"
+  else
+    echo "==> Downloading Android images ($SYSTEM_TYPE, ${ARCH:-arm64}) from SourceForge — ~1 GB, can be slow"
+  fi
+  sudo waydroid init -s "$SYSTEM_TYPE" -c "$SYSTEM_CHANNEL" -v "$VENDOR_CHANNEL"
 fi
 
 echo "==> Applying WSL-friendly properties"
