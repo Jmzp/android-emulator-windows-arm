@@ -1,0 +1,13 @@
+{
+    "response": [
+        {
+            "datetime": 1792665099,
+            "filename": "lineage-20.0-20261022-MAINLINE-waydroid_arm64_only-vendor.zip",
+            "id": "b634f6376cd20accfa835a78381e16f076057f8ca9a538a17282f25af04b44cc",
+            "romtype": "MAINLINE",
+            "size": 77356908,
+            "url": "https://github.com/Jmzp/android-emulator-windows-arm/releases/download/android-images/lineage-20.0-20261022-MAINLINE-waydroid_arm64_only-vendor.zip",
+            "version": "20.0"
+        }
+    ]
+}
