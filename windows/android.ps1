@@ -38,6 +38,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\common.ps1"
+. "$PSScriptRoot\window.ps1"
 
 # With systemd, WSL shuts the distro down once no wsl.exe client is attached,
 # taking Android with it. A hidden wsl.exe running keep-alive.sh holds it up
@@ -117,6 +118,7 @@ function Start-Android([hashtable]$Options) {
     # `show-full-ui` exits right away, so track the session instead.
     Start-KeepAlive $(if ($isFull) { 'waydroid-session' } else { 'waydroid-weston' })
     Invoke-RepoScript 'wsl/start-android.sh' @($Options.Window)
+    if (-not $isFull) { Set-AndroidWindow }
     New-Item -ItemType Directory -Force $StateDir | Out-Null
     $Options | ConvertTo-Json | Set-Content $lastStart
 

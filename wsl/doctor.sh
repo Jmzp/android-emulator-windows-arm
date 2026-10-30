@@ -56,6 +56,11 @@ for unit in waydroid-weston waydroid-session waydroid-adb-bridge waydroid-emu-co
   else warn "$unit inactive" "Restart with .\\windows\\android.ps1 stop, then start"; fi
 done
 
+if systemctl --user is-active -q waydroid-weston; then
+  if pgrep -f "windows-clipboard.py" >/dev/null; then pass "Shared clipboard running"
+  else warn "Shared clipboard not running" "Run .\\windows\\android.ps1 setup, then stop and start Android"; fi
+fi
+
 if [ "$(sudo -n waydroid shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then pass "Android finished booting"
 else fail "Android has not finished booting" "sudo waydroid logcat -b crash"; fi
 

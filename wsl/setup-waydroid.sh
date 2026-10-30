@@ -30,6 +30,9 @@ fi
 echo "==> Installing dependencies"
 sudo apt-get update -qq
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl ca-certificates socat adb python3 weston zstd aria2
+# start-android.sh builds the shared clipboard (a Weston module) with these.
+LIBWESTON_DEV="$(dpkg-query -W -f='${Package}\n' 'libweston-*-0' 2>/dev/null | sed -n 's/-0$/-dev/p' | head -1)"
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq gcc libc6-dev pkg-config ${LIBWESTON_DEV:+"$LIBWESTON_DEV"}
 
 if ! command -v waydroid >/dev/null; then
   echo "==> Adding Waydroid repository"

@@ -15,7 +15,7 @@ Where this project is heading, ordered by impact versus effort. Ideas and pull r
 | ✅ | **`android.ps1 doctor`** | About 30 checks across Windows, WSL, kernel, Waydroid, systemd units, the adb bridge, Android networking and a hung WSL service, each with a fix. |
 | ✅ | **Automatic `adb reverse` on start** | `start` reverses Metro (8081) and Expo (19000–19002); `-NoReverse` opts out, `rn-connect.ps1 -Ports` adds more. |
 
-## Phase 2: developer experience 🚧
+## Phase 2: developer experience ✅
 
 | | Item | Result / why it matters |
 |---|---|---|
@@ -24,8 +24,8 @@ Where this project is heading, ordered by impact versus effort. Ideas and pull r
 | ✅ | **Screenshots and screen recording** | `screenshot` and `record` save into Pictures / Videos. Android's `screenrecord` hangs in Waydroid, so recording grabs `screencap` frames from WSL and encodes them with ffmpeg at 15 fps. |
 | ✅ | **Easy APK install** | `android.ps1 install app.apk`, plus **Send to → Android Emulator** in Explorer's right-click menu. Dropping files on the window isn't possible: the nested Weston has no drag-and-drop to Android. |
 | ✅ | **Google Play services (GAPPS)** | `setup -Gapps` / `-Vanilla` switch images while keeping apps and data, and `register` copies the Android ID and opens Google's registration page. GAPPS isn't mirrored (Google's apps aren't ours to redistribute); a 16-connection download from SourceForge brings it in ~2 min and caches it, so switching back takes ~40 s. Play Integrity can't pass on an uncertified device. |
-| ⬜ | **Shared clipboard** | Copy and paste between Windows and Android. WSLg syncs the clipboard, but the nested Weston likely cuts it off; needs research. |
-| ⬜ | **Proper window title and icon** | The window says "Weston Compositor" and groups with WSL in the taskbar; it should read "Android Emulator". Weston's Wayland backend hardcodes the title. |
+| ✅ | **Shared clipboard** | Text copied in either Windows or Android pastes in the other. Android 13's Waydroid keeps its clipboard in the nested Weston's Wayland selection, which Weston never forwards to WSLg, so a small Weston module ([`clipboard-bridge.c`](wsl/clipboard/clipboard-bridge.c)) syncs it with the Windows clipboard through a long-lived PowerShell. |
+| ✅ | **Proper window title and icon** | The window reads "Android Emulator", in its own title bar and the taskbar, with the project's icon and its own pinnable taskbar button. Weston hardcodes its title, so `start` runs a copy of its Wayland backend with the title string swapped; the icon and taskbar identity are set from Windows. |
 
 ## Phase 3: research
 

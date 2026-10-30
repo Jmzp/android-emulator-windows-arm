@@ -1,4 +1,4 @@
-# Static checks for the Bash and PowerShell scripts on every push and pull request.
+# Static checks for the Bash, PowerShell, Python and C sources on every push and pull request.
 name: Lint
 
 on:
@@ -24,7 +24,18 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Compile Python helpers
-        run: python3 -m py_compile wsl/*.py .github/scripts/*.py
+        run: python3 -m py_compile wsl/*.py wsl/clipboard/*.py .github/scripts/*.py
+
+  clipboard-module:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build the Weston clipboard module
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libweston-13-dev pkg-config
+          gcc -shared -fPIC -O2 -Wall -Wextra -Wno-unused-parameter -Werror \
+            -o clipboard-bridge.so wsl/clipboard/clipboard-bridge.c $(pkg-config --cflags --libs libweston-13)
 
   psscriptanalyzer:
     runs-on: windows-latest

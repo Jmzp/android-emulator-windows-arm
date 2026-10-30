@@ -149,6 +149,12 @@ Un perfil fija a la vez el tamaño de la ventana y la densidad de pantalla, para
 
 `-Window 480x1040` y `-Density 200` reemplazan cualquiera de los dos valores. Cambiar de perfil, o rotar, reinicia Android (~30 s), porque la ventana no puede cambiar de tamaño mientras Android corre. `rotate` invierte la última ventana que usaste: `start -Device pixel` seguido de `rotate` te da un Pixel en horizontal. El ícono del escritorio también puede llevar un perfil: `.\windows\create-shortcut.ps1 -Device pixel`.
 
+### Copiar y pegar
+
+El portapapeles se comparte en ambos sentidos: copia texto en Windows y pégalo en Android (Ctrl+V o mantener presionado → Pegar), o copia en Android y pégalo en Windows. Solo texto; las imágenes y los archivos no pasan. Detrás hay un pequeño módulo de Weston ([`clipboard-bridge.c`](wsl/clipboard/clipboard-bridge.c)) que se compila en el primer arranque después de `setup`, porque el portapapeles de Android vive dentro de la ventana de Weston anidado, que por sí sola no lo comparte con WSLg.
+
+La ventana además aparece como **Android Emulator**, con su propio ícono y botón en la barra de tareas, en vez de "Weston Compositor" agrupada con WSL. Clic derecho en su botón de la barra de tareas → *Anclar a la barra de tareas* para arrancar el emulador desde ahí.
+
 ### Capturas y grabación de pantalla
 
 ```powershell
@@ -287,10 +293,11 @@ windows/                     PowerShell, se ejecuta desde Windows
   configure-wsl.ps1          Límites de RAM / CPU / swap para WSL
   install-kernel.ps1         Descarga (o compila con -Build) y activa el kernel con binder (-Revert para deshacer)
   android.ps1                start | stop | rotate | install | screenshot | record |
-                             snapshot | wipe | status | doctor | setup
+                             snapshot | wipe | status | doctor | setup | register
   doctor.ps1                 Diagnóstico detrás de `android.ps1 doctor`
   rn-connect.ps1             Puertos extra de adb reverse (start ya hace Metro / Expo)
   create-shortcut.ps1        Acceso directo con ícono, más el instalador de APKs en "Enviar a"
+  window.ps1                 Ícono y botón propio de la ventana en la barra de tareas
   common.ps1                 Funciones compartidas
 wsl/                         Bash, corre dentro de la distro
   kernel/build-kernel.sh     Clona, configura y compila el kernel de WSL
@@ -304,6 +311,7 @@ wsl/                         Bash, corre dentro de la distro
   record.py                  Grabación de pantalla (cuadros de screencap -> ffmpeg)
   install-images.py          Instala / cambia las imágenes de Android (mirror o descarga en paralelo)
   gsf-id.sh                  Android ID para el registro del dispositivo con Google
+  clipboard/                 Portapapeles compartido: módulo de Weston + ayudante de Windows
   authorize-adb.sh           Autoriza una clave adb de Windows dentro de Android
   keep-alive.sh              Mantiene WSL encendido mientras la ventana de Android está abierta
 assets/                      Ícono del acceso directo
@@ -374,7 +382,7 @@ Para recuperar tus límites anteriores de WSL, copia `%USERPROFILE%\.wslconfig.b
 
 ## Roadmap
 
-La Fase 1 está completa y la mayor parte de la Fase 2 también: perfiles de dispositivo, rotación, snapshots, capturas, grabación, instalación de APKs y servicios de Google Play. Lo siguiente: un portapapeles compartido e investigar la aceleración por GPU. Mira [ROADMAP.md](ROADMAP.md) (en inglés). Las ideas y los pull requests son bienvenidos.
+Las Fases 1 y 2 están completas: perfiles de dispositivo, rotación, snapshots, capturas, grabación, instalación de APKs, servicios de Google Play, portapapeles compartido y un título e ícono propios para la ventana. Lo siguiente: investigar la aceleración por GPU y una app en la bandeja del sistema. Mira [ROADMAP.md](ROADMAP.md) (en inglés). Las ideas y los pull requests son bienvenidos.
 
 ## Créditos
 

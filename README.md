@@ -149,6 +149,12 @@ A profile sets the window size and the screen density together, so apps see the 
 
 `-Window 480x1040` and `-Density 200` override either value. Switching profiles, or rotating, restarts Android (~30 s), because the window can't change size while Android runs. `rotate` swaps the last window you used, so `start -Device pixel` followed by `rotate` gives you a landscape Pixel. The desktop icon can carry a profile too: `.\windows\create-shortcut.ps1 -Device pixel`.
 
+### Copy and paste
+
+The clipboard is shared both ways: copy text in Windows and paste it in Android (Ctrl+V or long-press → Paste), or copy in Android and paste in Windows. It's text only; images and files don't cross. Behind it is a small Weston module ([`clipboard-bridge.c`](wsl/clipboard/clipboard-bridge.c)), built on the first start after `setup`, because Android's clipboard lives inside the nested Weston window, which doesn't share it with WSLg on its own.
+
+The window also shows up as **Android Emulator** with its own icon and taskbar button instead of "Weston Compositor" grouped with WSL. Right-click its taskbar button → *Pin to taskbar* to start the emulator from there.
+
 ### Screenshots and screen recording
 
 ```powershell
@@ -287,10 +293,11 @@ windows/                     PowerShell, run from Windows
   configure-wsl.ps1          RAM / CPU / swap limits for WSL
   install-kernel.ps1         Download (or -Build) and enable the binder kernel (-Revert to undo)
   android.ps1                start | stop | rotate | install | screenshot | record |
-                             snapshot | wipe | status | doctor | setup
+                             snapshot | wipe | status | doctor | setup | register
   doctor.ps1                 Diagnostics behind `android.ps1 doctor`
   rn-connect.ps1             Extra adb reverse ports (start already does Metro / Expo)
   create-shortcut.ps1        Desktop shortcut with icon, plus the "Send to" APK installer
+  window.ps1                 Window icon and taskbar button
   common.ps1                 Shared helpers
 wsl/                         Bash, runs inside the distro
   kernel/build-kernel.sh     Clone + configure + build the WSL kernel
@@ -304,6 +311,7 @@ wsl/                         Bash, runs inside the distro
   record.py                  Screen recording (screencap frames -> ffmpeg)
   install-images.py          Install / switch Android images (mirror or parallel download)
   gsf-id.sh                  Android ID for Google's device registration
+  clipboard/                 Shared clipboard: Weston module + Windows helper
   authorize-adb.sh           Trust a Windows adb key inside Android
   keep-alive.sh              Keep WSL running while the Android window is open
 assets/                      Shortcut icon
@@ -374,7 +382,7 @@ To restore your previous WSL limits, copy `%USERPROFILE%\.wslconfig.bak` back ov
 
 ## Roadmap
 
-Phase 1 is complete and most of phase 2 is too: device profiles, rotation, snapshots, screenshots, recording, APK install and Google Play services. Next up: a shared clipboard and GPU acceleration research. See [ROADMAP.md](ROADMAP.md). Ideas and pull requests are welcome.
+Phases 1 and 2 are complete: device profiles, rotation, snapshots, screenshots, recording, APK install, Google Play services, a shared clipboard and a proper window title and icon. Next up: GPU acceleration research and a system tray app. See [ROADMAP.md](ROADMAP.md). Ideas and pull requests are welcome.
 
 ## Credits
 
