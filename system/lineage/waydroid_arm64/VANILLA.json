@@ -1,0 +1,13 @@
+{
+    "response": [
+        {
+            "datetime": 1790477549,
+            "filename": "lineage-20.0-20260927-VANILLA-waydroid_arm64-system.zip",
+            "id": "5fb8179ed4455f45919c5a2bfbfdd1591619295994ad321217f03bb1dcfc53a7",
+            "romtype": "VANILLA",
+            "size": 912267974,
+            "url": "https://github.com/Jmzp/android-emulator-windows-arm/releases/download/android-images/lineage-20.0-20260927-VANILLA-waydroid_arm64-system.zip",
+            "version": "20.0"
+        }
+    ]
+}
